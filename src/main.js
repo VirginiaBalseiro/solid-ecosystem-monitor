@@ -3,7 +3,7 @@ const excludes = ["template.md", "README.md"];
 // const TOKEN = process.env.TOKEN;
 
 function drawTable(entries, headers, callback) {
-  const container = document.getElementById("main-content");
+  const container = document.querySelector("main > article");
   var table = document.createElement("table");
   var thead = document.createElement("thead");
   var headerRow = document.createElement("tr");
@@ -57,11 +57,21 @@ async function scrapeMeetingData() {
       }
 
       drawTable(entries, ["Meeting", "Participants"], (entry, tbody) => {
+console.log(entry);
         var row = document.createElement("tr");
+        row.setAttribute("about", "#" + entry.file.sha);
+        row.setAttribute("typeof", "qb:Observation");
         var cell0 = document.createElement("td");
-        cell0.textContent = entry.file.name;
+        var a = document.createElement("a");
+        a.setAttribute("property", "sdmx-dimension:refPeriod");
+        a.setAttribute("datatype", "xsd:date");
+        a.href = entry.file.html_url;
+        a.textContent = entry.file.name.slice(0, -3);
+        cell0.appendChild(a);
         row.appendChild(cell0);
         var cell1 = document.createElement("td");
+        cell1.setAttribute("property", "sdmx-measure:obsValue");
+        cell1.setAttribute("datatype", "xsd:int");
         cell1.textContent = entry.participantsCount;
         row.appendChild(cell1);
         tbody.appendChild(row);
