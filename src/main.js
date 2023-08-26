@@ -1,9 +1,10 @@
 const githubApiUrl = `https://api.github.com/repositories/186702057/contents/meetings`;
 const excludes = ["template.md", "README.md"];
+const container = document.querySelector("main > article");
+
 // const TOKEN = process.env.TOKEN;
 
 function drawTable(entries, headers, callback) {
-  const container = document.querySelector("main > article");
   var table = document.createElement("table");
   var thead = document.createElement("thead");
   var headerRow = document.createElement("tr");
@@ -35,7 +36,7 @@ function createLineChart(
   yAxisLabel
 ) {
   const margin = { top: 20, right: 30, bottom: 40, left: 50 };
-  const width = (data.length * 20 )- margin.left - margin.right;
+  const width = data.length * 20 - margin.left - margin.right;
   const height = 400 - margin.top - margin.bottom;
 
   const svg = d3
@@ -106,6 +107,10 @@ function createLineChart(
 }
 
 async function scrapeMeetingData() {
+  let isLoading = true;
+  const spinner = document.createElement("div");
+  spinner.classList.add("spinner");
+
   try {
     const response = await fetch(githubApiUrl, {
       method: "GET",
@@ -114,7 +119,12 @@ async function scrapeMeetingData() {
       // },
     });
 
+    if (isLoading) {
+      container.appendChild(spinner);
+    }
+
     if (response.ok) {
+      isLoading = false;
       const files = await response.json();
       const entries = [];
 
@@ -134,27 +144,6 @@ async function scrapeMeetingData() {
           entries.push({ file, participantsCount });
         }
       }
-
-      drawTable(entries, ["Meeting", "Participants"], (entry, tbody) => {
-        console.log(entry);
-        var row = document.createElement("tr");
-        row.setAttribute("about", "#" + entry.file.sha);
-        row.setAttribute("typeof", "qb:Observation");
-        var cell0 = document.createElement("td");
-        cell0.setAttribute("property", "sdmx-dimension:refPeriod");
-        cell0.setAttribute("datatype", "xsd:date");
-        var a = document.createElement("a");
-        a.href = entry.file.html_url;
-        a.textContent = entry.file.name.slice(0, -3);
-        cell0.appendChild(a);
-        row.appendChild(cell0);
-        var cell1 = document.createElement("td");
-        cell1.setAttribute("property", "sdmx-measure:obsValue");
-        cell1.setAttribute("datatype", "xsd:int");
-        cell1.textContent = entry.participantsCount;
-        row.appendChild(cell1);
-        tbody.appendChild(row);
-      });
 
       const aggregatedEntries = entries.reduce((result, entry) => {
         const date = new Date(
@@ -186,51 +175,75 @@ async function scrapeMeetingData() {
           entry.totalParticipantsCount / entry.fileCount,
       }));
 
-      drawTable(
-        monthEntries,
-        ["Month", "Average Participants"],
-        (entry, tbody) => {
-          // console.log(
-          //   `Month: ${entry.year}-${
-          //     entry.month + 1
-          //   }, Average participants: ${Math.floor(
-          //     entry.averageParticipantsCount
-          //   )}`
-          // );
+      if (!isLoading) {
+        container.removeChild(spinner);
+        drawTable(entries, ["Meeting", "Participants"], (entry, tbody) => {
+          console.log(entry);
           var row = document.createElement("tr");
+          row.setAttribute("about", "#" + entry.file.sha);
+          row.setAttribute("typeof", "qb:Observation");
           var cell0 = document.createElement("td");
-          cell0.textContent = `${entry.year}-${entry.month + 1}`;
+          cell0.setAttribute("property", "sdmx-dimension:refPeriod");
+          cell0.setAttribute("datatype", "xsd:date");
+          var a = document.createElement("a");
+          a.href = entry.file.html_url;
+          a.textContent = entry.file.name.slice(0, -3);
+          cell0.appendChild(a);
           row.appendChild(cell0);
           var cell1 = document.createElement("td");
-          cell1.textContent = `${Math.floor(entry.averageParticipantsCount)}`;
+          cell1.setAttribute("property", "sdmx-measure:obsValue");
+          cell1.setAttribute("datatype", "xsd:int");
+          cell1.textContent = entry.participantsCount;
           row.appendChild(cell1);
           tbody.appendChild(row);
-        }
-      );
+        });
 
-      // Create line charts
-      createLineChart(
-        entries.map((entry) => ({
-          date: entry.file.name,
-          participantsCount: entry.participantsCount,
-        })),
-        "line-chart-meetings",
-        "date",
-        "participantsCount",
-        "Meeting",
-        "Participants"
-      );
-      createLineChart(
-        monthEntries.map((entry) => ({
-          month: `${entry.year}-${entry.month + 1}`,
-          averageParticipantsCount: entry.averageParticipantsCount,
-        })),
-        "line-chart-monthly",
-        "month",
-        "averageParticipantsCount",
-        "Month",
-        "Average Participants"
-      );
+        drawTable(
+          monthEntries,
+          ["Month", "Average Participants"],
+          (entry, tbody) => {
+            // console.log(
+            //   `Month: ${entry.year}-${
+            //     entry.month + 1
+            //   }, Average participants: ${Math.floor(
+            //     entry.averageParticipantsCount
+            //   )}`
+            // );
+            var row = document.createElement("tr");
+            var cell0 = document.createElement("td");
+            cell0.textContent = `${entry.year}-${entry.month + 1}`;
+            row.appendChild(cell0);
+            var cell1 = document.createElement("td");
+            cell1.textContent = `${Math.floor(entry.averageParticipantsCount)}`;
+            row.appendChild(cell1);
+            tbody.appendChild(row);
+          }
+        );
+
+        // Create line charts
+        createLineChart(
+          entries.map((entry) => ({
+            date: entry.file.name,
+            participantsCount: entry.participantsCount,
+          })),
+          "line-chart-meetings",
+          "date",
+          "participantsCount",
+          "Meeting",
+          "Participants"
+        );
+        createLineChart(
+          monthEntries.map((entry) => ({
+            month: `${entry.year}-${entry.month + 1}`,
+            averageParticipantsCount: entry.averageParticipantsCount,
+          })),
+          "line-chart-monthly",
+          "month",
+          "averageParticipantsCount",
+          "Month",
+          "Average Participants"
+        );
+      }
     } else {
       console.error(
         `Failed to fetch directory contents. Status code: ${response.status}`
