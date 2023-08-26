@@ -1,0 +1,11 @@
+{
+  "name": "solid-cg-data",
+  "version": "1.0.0",
+  "description": "",
+  "private": true,
+    "scripts": {
+    "start": "node src/main.js"
+  },
+  "author": "",
+  "license": "ISC"
+}
