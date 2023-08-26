@@ -26,6 +26,85 @@ function drawTable(entries, headers, callback) {
   container.appendChild(table);
 }
 
+function createLineChart(
+  data,
+  containerId,
+  xAxisAccessor,
+  yAxisAccessor,
+  xAxisLabel,
+  yAxisLabel
+) {
+  const margin = { top: 20, right: 30, bottom: 40, left: 50 };
+  const width = (data.length * 20 )- margin.left - margin.right;
+  const height = 400 - margin.top - margin.bottom;
+
+  const svg = d3
+    .select(`#${containerId}`)
+    .append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+    .attr("transform", `translate(${margin.left},${margin.top})`);
+
+  const xScale = d3
+    .scalePoint()
+    .domain(data.map((d) => d[xAxisAccessor]))
+    .range([0, width]);
+
+  const yScale = d3
+    .scaleLinear()
+    .domain([0, d3.max(data, (d) => d[yAxisAccessor])])
+    .nice()
+    .range([height, 0]);
+
+  const line = d3
+    .line()
+    .x((d) => xScale(d[xAxisAccessor]))
+    .y((d) => yScale(d[yAxisAccessor]));
+
+  svg
+    .append("path")
+    .datum(data)
+    .attr("class", "line")
+    .attr("fill", "none")
+    .attr("stroke", "blue")
+    .attr("stroke-width", 2)
+    .attr("d", line);
+
+  function customXAxis(g) {
+    g.call(d3.axisBottom(xScale))
+      .selectAll("text")
+      .style("text-anchor", "end")
+      .attr("dx", "-0.8em")
+      .attr("dy", "0.15em")
+      .attr("transform", "rotate(-45)");
+  }
+
+  svg
+    .append("g")
+    .attr("class", "x-axis")
+    .attr("transform", `translate(0, ${height})`)
+    .call(customXAxis);
+
+  svg.append("g").attr("class", "y-axis").call(d3.axisLeft(yScale));
+
+  svg
+    .append("text")
+    .attr("x", width / 2)
+    .attr("y", height + margin.top + 20)
+    .attr("text-anchor", "middle")
+    .text(xAxisLabel);
+
+  svg
+    .append("text")
+    .attr("transform", "rotate(-90)")
+    .attr("x", 0 - height / 2)
+    .attr("y", 0 - margin.left)
+    .attr("dy", "1em")
+    .style("text-anchor", "middle")
+    .text(yAxisLabel);
+}
+
 async function scrapeMeetingData() {
   try {
     const response = await fetch(githubApiUrl, {
@@ -57,7 +136,7 @@ async function scrapeMeetingData() {
       }
 
       drawTable(entries, ["Meeting", "Participants"], (entry, tbody) => {
-console.log(entry);
+        console.log(entry);
         var row = document.createElement("tr");
         row.setAttribute("about", "#" + entry.file.sha);
         row.setAttribute("typeof", "qb:Observation");
@@ -107,23 +186,51 @@ console.log(entry);
           entry.totalParticipantsCount / entry.fileCount,
       }));
 
-      drawTable(monthEntries, ["Month", "Average Participants"], (entry, tbody) => {
-        // console.log(
-        //   `Month: ${entry.year}-${
-        //     entry.month + 1
-        //   }, Average participants: ${Math.floor(
-        //     entry.averageParticipantsCount
-        //   )}`
-        // );
-        var row = document.createElement("tr");
-        var cell0 = document.createElement("td");
-        cell0.textContent = `${entry.year}-${entry.month + 1}`;
-        row.appendChild(cell0);
-        var cell1 = document.createElement("td");
-        cell1.textContent = `${Math.floor(entry.averageParticipantsCount)}`;
-        row.appendChild(cell1);
-        tbody.appendChild(row);
-      });
+      drawTable(
+        monthEntries,
+        ["Month", "Average Participants"],
+        (entry, tbody) => {
+          // console.log(
+          //   `Month: ${entry.year}-${
+          //     entry.month + 1
+          //   }, Average participants: ${Math.floor(
+          //     entry.averageParticipantsCount
+          //   )}`
+          // );
+          var row = document.createElement("tr");
+          var cell0 = document.createElement("td");
+          cell0.textContent = `${entry.year}-${entry.month + 1}`;
+          row.appendChild(cell0);
+          var cell1 = document.createElement("td");
+          cell1.textContent = `${Math.floor(entry.averageParticipantsCount)}`;
+          row.appendChild(cell1);
+          tbody.appendChild(row);
+        }
+      );
+
+      // Create line charts
+      createLineChart(
+        entries.map((entry) => ({
+          date: entry.file.name,
+          participantsCount: entry.participantsCount,
+        })),
+        "line-chart-meetings",
+        "date",
+        "participantsCount",
+        "Meeting",
+        "Participants"
+      );
+      createLineChart(
+        monthEntries.map((entry) => ({
+          month: `${entry.year}-${entry.month + 1}`,
+          averageParticipantsCount: entry.averageParticipantsCount,
+        })),
+        "line-chart-monthly",
+        "month",
+        "averageParticipantsCount",
+        "Month",
+        "Average Participants"
+      );
     } else {
       console.error(
         `Failed to fetch directory contents. Status code: ${response.status}`
