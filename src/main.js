@@ -141,9 +141,9 @@ async function scrapeMeetingData() {
         row.setAttribute("about", "#" + entry.file.sha);
         row.setAttribute("typeof", "qb:Observation");
         var cell0 = document.createElement("td");
+        cell0.setAttribute("property", "sdmx-dimension:refPeriod");
+        cell0.setAttribute("datatype", "xsd:date");
         var a = document.createElement("a");
-        a.setAttribute("property", "sdmx-dimension:refPeriod");
-        a.setAttribute("datatype", "xsd:date");
         a.href = entry.file.html_url;
         a.textContent = entry.file.name.slice(0, -3);
         cell0.appendChild(a);
