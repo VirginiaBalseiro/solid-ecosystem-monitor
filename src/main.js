@@ -244,7 +244,7 @@ async function scrapeMeetingData() {
         );
         createLineChart(
           monthEntries.map((entry) => ({
-            month: `${entry.year}-${entry.month + 1}`,
+            month: formatDate(entry.year, entry.month),
             averageParticipantsCount: entry.averageParticipantsCount,
           })),
           "line-chart-monthly",
