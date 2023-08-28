@@ -268,7 +268,7 @@ async function scrapeMeetingData() {
         // Create line charts
         createLineChart(
           entries.map((entry) => ({
-            date: entry.file.name,
+            date: entry.file.name.substr(0, entry.file.name.indexOf(".md")),
             participantsCount: entry.participantsCount,
           })),
           "line-chart-meetings",
