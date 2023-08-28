@@ -39,6 +39,12 @@ function createLineChart(
   const width = data.length * 20 - margin.left - margin.right;
   const height = 400 - margin.top - margin.bottom;
 
+  const chartContainer = document.createElement("div");
+  chartContainer.id = containerId;
+  chartContainer.classList.add("chart");
+
+  container.appendChild(chartContainer);
+
   const svg = d3
     .select(`#${containerId}`)
     .append("svg")
@@ -178,7 +184,6 @@ async function scrapeMeetingData() {
       if (!isLoading) {
         container.removeChild(spinner);
         drawTable(entries, ["Meeting", "Participants"], (entry, tbody) => {
-          console.log(entry);
           var row = document.createElement("tr");
           row.setAttribute("about", "#" + entry.file.sha);
           row.setAttribute("typeof", "qb:Observation");
