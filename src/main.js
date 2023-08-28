@@ -2,8 +2,6 @@ const githubApiUrl = `https://api.github.com/repositories/186702057/contents/mee
 const excludes = ["template.md", "README.md"];
 const container = document.querySelector("main > article");
 
-// const TOKEN = process.env.TOKEN;
-
 function drawTable(entries, headers, callback) {
   var table = document.createElement("table");
   var thead = document.createElement("thead");
@@ -35,9 +33,9 @@ function createLineChart(
   xAxisLabel,
   yAxisLabel
 ) {
-  const margin = { top: 20, right: 30, bottom: 40, left: 50 };
+  const margin = { top: 20, right: 30, bottom: 120, left: 50 };
   const width = data.length * 20 - margin.left - margin.right;
-  const height = 400 - margin.top - margin.bottom;
+  const height = 500 - margin.top - margin.bottom;
 
   const chartContainer = document.createElement("div");
   chartContainer.id = containerId;
@@ -98,7 +96,7 @@ function createLineChart(
   svg
     .append("text")
     .attr("x", width / 2)
-    .attr("y", height + margin.top + 20)
+    .attr("y", height + margin.top + 60)
     .attr("text-anchor", "middle")
     .text(xAxisLabel);
 
@@ -114,19 +112,26 @@ function createLineChart(
 
 async function scrapeMeetingData() {
   let isLoading = true;
-  const spinner = document.createElement("div");
-  spinner.classList.add("spinner");
+
+  const progressIndicatorContainer = document.createElement("div");
+  progressIndicatorContainer.id = "progress-indicator-container";
+  const progressIndicator = document.createElement("progress");
+  const progressIndicatorLabel = document.createElement("label");
+  progressIndicatorLabel.setAttribute("for", "progress-indicator");
+  progressIndicatorLabel.textContent = "Fetching data..."
+  progressIndicator.id = "progress-indicator";
+  progressIndicator.value = 0;
+  progressIndicator.max = 100;
+  progressIndicatorContainer.appendChild(progressIndicatorLabel);
+  progressIndicatorContainer.appendChild(progressIndicator);
 
   try {
     const response = await fetch(githubApiUrl, {
-      method: "GET",
-      // headers: {
-      //   Authorization: `Bearer ${TOKEN}`,
-      // },
+      method: "GET"
     });
 
     if (isLoading) {
-      container.appendChild(spinner);
+      container.appendChild(progressIndicatorContainer);
     }
 
     if (response.ok) {
@@ -134,7 +139,11 @@ async function scrapeMeetingData() {
       const files = await response.json();
       const entries = [];
 
+      const valueIncrement = 100 / files.length;
+
       for (const file of files) {
+        progressIndicator.value += valueIncrement;
+
         if (
           file.type === "file" &&
           file.name.endsWith(".md") &&
@@ -144,9 +153,6 @@ async function scrapeMeetingData() {
           const participantsCount = await countParticipantsInFile(
             markdownFileUrl
           );
-          //   console.log(
-          //     `Meeting: ${file.name}, Participants: ${participantsCount}`
-          //   );
           entries.push({ file, participantsCount });
         }
       }
@@ -182,7 +188,7 @@ async function scrapeMeetingData() {
       }));
 
       if (!isLoading) {
-        container.removeChild(spinner);
+        container.removeChild(progressIndicatorContainer);
         drawTable(entries, ["Meeting", "Participants"], (entry, tbody) => {
           var row = document.createElement("tr");
           row.setAttribute("about", "#" + entry.file.sha);
@@ -207,13 +213,6 @@ async function scrapeMeetingData() {
           monthEntries,
           ["Month", "Average Participants"],
           (entry, tbody) => {
-            // console.log(
-            //   `Month: ${entry.year}-${
-            //     entry.month + 1
-            //   }, Average participants: ${Math.floor(
-            //     entry.averageParticipantsCount
-            //   )}`
-            // );
             var row = document.createElement("tr");
             var cell0 = document.createElement("td");
             cell0.textContent = `${entry.year}-${entry.month + 1}`;
