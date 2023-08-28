@@ -2,6 +2,12 @@ const githubApiUrl = `https://api.github.com/repositories/186702057/contents/mee
 const excludes = ["template.md", "README.md"];
 const container = document.querySelector("main > article");
 
+const formatDate = (year, month) => {
+  const monthString = (month + 1).toString();
+  const formattedMonth = monthString.length == 1 ? `0${monthString}` : monthString;
+  return `${year}-${formattedMonth}`;
+}
+
 function drawTable(entries, headers, callback) {
   var table = document.createElement("table");
   var thead = document.createElement("thead");
@@ -215,7 +221,7 @@ async function scrapeMeetingData() {
           (entry, tbody) => {
             var row = document.createElement("tr");
             var cell0 = document.createElement("td");
-            cell0.textContent = `${entry.year}-${entry.month + 1}`;
+            cell0.textContent = formatDate(entry.year, entry.month);
             row.appendChild(cell0);
             var cell1 = document.createElement("td");
             cell1.textContent = `${Math.floor(entry.averageParticipantsCount)}`;
