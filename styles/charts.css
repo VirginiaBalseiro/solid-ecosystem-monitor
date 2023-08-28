@@ -3,3 +3,7 @@
     overflow-x: scroll;
     margin-top: 3rem;
 }
+
+.tooltip {
+    background-color: #fff;
+}

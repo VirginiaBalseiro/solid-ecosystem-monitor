@@ -4,9 +4,10 @@ const container = document.querySelector("main > article");
 
 const formatDate = (year, month) => {
   const monthString = (month + 1).toString();
-  const formattedMonth = monthString.length == 1 ? `0${monthString}` : monthString;
+  const formattedMonth =
+    monthString.length == 1 ? `0${monthString}` : monthString;
   return `${year}-${formattedMonth}`;
-}
+};
 
 function drawTable(entries, headers, callback) {
   var table = document.createElement("table");
@@ -73,6 +74,13 @@ function createLineChart(
     .x((d) => xScale(d[xAxisAccessor]))
     .y((d) => yScale(d[yAxisAccessor]));
 
+  const tooltip = d3
+    .select(`#${containerId}`)
+    .append("div")
+    .attr("class", "tooltip")
+    .style("position", "absolute")
+    .style("opacity", 0);
+
   svg
     .append("path")
     .datum(data)
@@ -114,6 +122,33 @@ function createLineChart(
     .attr("dy", "1em")
     .style("text-anchor", "middle")
     .text(yAxisLabel);
+
+  svg
+    .selectAll(".dot")
+    .data(data)
+    .enter()
+    .append("circle")
+    .attr("class", "dot")
+    .attr("cx", (d) => xScale(d[xAxisAccessor]))
+    .attr("cy", (d) => yScale(d[yAxisAccessor]))
+    .attr("r", 5) 
+    .style("fill", "blue")
+    .on("mouseover", (event, d) => {
+      tooltip.transition().duration(200).style("opacity", 0.9);
+    
+      const tooltipWidth = tooltip.node().offsetWidth;
+      const tooltipHeight = tooltip.node().offsetHeight;
+      const xPosition = event.pageX - tooltipWidth / 2;
+      const yPosition = event.pageY - tooltipHeight - 10;
+
+      tooltip
+        .html(`<strong>${xAxisLabel}:</strong> ${d[xAxisAccessor]}<br><strong>${yAxisLabel}:</strong> ${d[yAxisAccessor]}`)
+        .style("left", xPosition + "px")
+        .style("top", yPosition + "px");
+    })
+    .on("mouseout", () => {
+      tooltip.transition().duration(500).style("opacity", 0);
+    });
 }
 
 async function scrapeMeetingData() {
@@ -190,7 +225,7 @@ async function scrapeMeetingData() {
         year: entry.year,
         month: entry.month,
         averageParticipantsCount:
-          entry.totalParticipantsCount / entry.fileCount,
+          Math.floor(entry.totalParticipantsCount / entry.fileCount),
       }));
 
       if (!isLoading) {
@@ -277,9 +312,16 @@ async function countParticipantsInFile(fileUrl) {
       for (const line of lines) {
         if (line.startsWith("## Present")) {
           participantsSection = true;
-        } else if (participantsSection && (line.startsWith("-") || line.startsWith("*"))) {
+        } else if (
+          participantsSection &&
+          (line.startsWith("-") || line.startsWith("*"))
+        ) {
           participantCount++;
-        } else if (participantsSection && participantCount > 0 && line.trim() === "") {
+        } else if (
+          participantsSection &&
+          participantCount > 0 &&
+          line.trim() === ""
+        ) {
           break;
         }
       }
