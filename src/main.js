@@ -118,7 +118,7 @@ async function scrapeMeetingData() {
   const progressIndicator = document.createElement("progress");
   const progressIndicatorLabel = document.createElement("label");
   progressIndicatorLabel.setAttribute("for", "progress-indicator");
-  progressIndicatorLabel.textContent = "Fetching data..."
+  progressIndicatorLabel.textContent = "Fetching data...";
   progressIndicator.id = "progress-indicator";
   progressIndicator.value = 0;
   progressIndicator.max = 100;
@@ -127,7 +127,7 @@ async function scrapeMeetingData() {
 
   try {
     const response = await fetch(githubApiUrl, {
-      method: "GET"
+      method: "GET",
     });
 
     if (isLoading) {
@@ -271,10 +271,10 @@ async function countParticipantsInFile(fileUrl) {
       for (const line of lines) {
         if (line.startsWith("## Present")) {
           participantsSection = true;
-        } else if (participantsSection && line.trim() === "") {
-          break;
-        } else if (participantsSection) {
+        } else if (participantsSection && (line.startsWith("-") || line.startsWith("*"))) {
           participantCount++;
+        } else if (participantsSection && participantCount > 0 && line.trim() === "") {
+          break;
         }
       }
 
