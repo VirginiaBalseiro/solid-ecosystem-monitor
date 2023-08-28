@@ -41,7 +41,7 @@ function createLineChart(
   yAxisLabel
 ) {
   const margin = { top: 20, right: 30, bottom: 120, left: 50 };
-  const width = data.length * 20 - margin.left - margin.right;
+  const width = Math.max(data.length * 20, container.getBoundingClientRect().width) - margin.left - margin.right;
   const height = 500 - margin.top - margin.bottom;
 
   const chartContainer = document.createElement("div");
