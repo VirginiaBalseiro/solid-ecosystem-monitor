@@ -6,4 +6,5 @@
 
 .tooltip {
     background-color: #fff;
+    pointer-events: none;
 }
