@@ -9,7 +9,7 @@ const formatDate = (year, month) => {
   return `${year}-${formattedMonth}`;
 };
 
-function drawTable(entries, headers, type, callback) {
+function drawTable(entries, headers, callback) {
   var table = document.createElement("table");
   var thead = document.createElement("thead");
   var headerRow = document.createElement("tr");
@@ -22,13 +22,7 @@ function drawTable(entries, headers, type, callback) {
 
   var tbody = document.createElement("tbody");
 
-  const data = [...entries];
-
-  if (type === "date") {
-    data.reverse();
-  }
-
-  data.forEach((entry) => {
+  entries.forEach((entry) => {
     callback(entry, tbody);
   });
 
@@ -401,7 +395,6 @@ async function scrapeMeetingData() {
         drawTable(
           entries,
           ["Meeting", "Participants"],
-          "date",
           (entry, tbody) => {
             var row = document.createElement("tr");
             row.setAttribute("about", "#" + entry.file.sha);
@@ -426,7 +419,6 @@ async function scrapeMeetingData() {
         drawTable(
           monthEntries,
           ["Month", "Average Participants"],
-          "date",
           (entry, tbody) => {
             var row = document.createElement("tr");
             var cell0 = document.createElement("td");
@@ -458,7 +450,6 @@ async function scrapeMeetingData() {
         drawTable(
           scribesTableData,
           ["Name", "Meetings scribed"],
-          "count",
           (entry, tbody) => {
             var row = document.createElement("tr");
             var cell0 = document.createElement("td");
@@ -474,7 +465,6 @@ async function scrapeMeetingData() {
         drawTable(
           presenTableData,
           ["Name", "Meetings present"],
-          "count",
           (entry, tbody) => {
             var row = document.createElement("tr");
             var cell0 = document.createElement("td");
