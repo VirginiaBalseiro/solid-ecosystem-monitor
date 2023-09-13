@@ -226,22 +226,17 @@ function drawBarChart(
     .style("fill", "blue")
     .on("mouseover", function (event, d) {
       tooltip.style("opacity", 1);
+      const tooltipWidth = tooltip.node().offsetWidth;
+      const tooltipHeight = tooltip.node().offsetHeight;
+      const xPosition = event.pageX - tooltipWidth / 2;
+      const yPosition = event.pageY - tooltipHeight - 10;
+
       tooltip
         .html(
-          d[xAxisAccessor] +
-            ": " +
-            d[yAxisAccessor] +
-            " " +
-            yAxisLabel.toLowerCase()
+          `<strong>${d[xAxisAccessor]}</strong> <br><strong>${yAxisLabel}:</strong> ${d[yAxisAccessor]}`
         )
-        .style("left", event.pageX - 20 + "px")
-        .style(
-          "top",
-          event.pageY -
-            d3.select("#bar-chart").node().getBoundingClientRect().top -
-            25 +
-            "px"
-        );
+        .style("left", xPosition + "px")
+        .style("top", yPosition + "px");
     })
     .on("mouseout", function () {
       tooltip.style("opacity", 0);
@@ -392,29 +387,42 @@ async function scrapeMeetingData() {
 
       if (!isLoading) {
         container.removeChild(progressIndicatorContainer);
-        drawTable(
-          entries,
-          ["Meeting", "Participants"],
-          (entry, tbody) => {
-            var row = document.createElement("tr");
-            row.setAttribute("about", "#" + entry.file.sha);
-            row.setAttribute("typeof", "qb:Observation");
-            var cell0 = document.createElement("td");
-            cell0.setAttribute("property", "sdmx-dimension:refPeriod");
-            cell0.setAttribute("datatype", "xsd:date");
-            var a = document.createElement("a");
-            a.href = entry.file.html_url;
-            a.textContent = entry.file.name.slice(0, -3);
-            cell0.appendChild(a);
-            row.appendChild(cell0);
-            var cell1 = document.createElement("td");
-            cell1.setAttribute("property", "sdmx-measure:obsValue");
-            cell1.setAttribute("datatype", "xsd:int");
-            cell1.textContent = entry.participantsCount;
-            row.appendChild(cell1);
-            tbody.appendChild(row);
-          }
+
+        // Meeting participants
+
+        drawTable(entries, ["Meeting", "Participants"], (entry, tbody) => {
+          var row = document.createElement("tr");
+          row.setAttribute("about", "#" + entry.file.sha);
+          row.setAttribute("typeof", "qb:Observation");
+          var cell0 = document.createElement("td");
+          cell0.setAttribute("property", "sdmx-dimension:refPeriod");
+          cell0.setAttribute("datatype", "xsd:date");
+          var a = document.createElement("a");
+          a.href = entry.file.html_url;
+          a.textContent = entry.file.name.slice(0, -3);
+          cell0.appendChild(a);
+          row.appendChild(cell0);
+          var cell1 = document.createElement("td");
+          cell1.setAttribute("property", "sdmx-measure:obsValue");
+          cell1.setAttribute("datatype", "xsd:int");
+          cell1.textContent = entry.participantsCount;
+          row.appendChild(cell1);
+          tbody.appendChild(row);
+        });
+
+        createLineChart(
+          entries.map((entry) => ({
+            date: entry.file.name.substr(0, entry.file.name.indexOf(".md")),
+            participantsCount: entry.participantsCount,
+          })),
+          "line-chart-meetings",
+          "date",
+          "participantsCount",
+          "Meeting",
+          "Participants"
         );
+
+        // Monthly average participants
 
         drawTable(
           monthEntries,
@@ -431,20 +439,26 @@ async function scrapeMeetingData() {
           }
         );
 
+        createLineChart(
+          monthEntries.map((entry) => ({
+            month: formatDate(entry.year, entry.month),
+            averageParticipantsCount: entry.averageParticipantsCount,
+          })),
+          "line-chart-monthly",
+          "month",
+          "averageParticipantsCount",
+          "Month",
+          "Average Participants"
+        );
+
+        // Scribes
+
         var scribesTableData = Object.keys(scribeCounts)
           .map((key) => ({ Name: key, "Meetings scribed": scribeCounts[key] }))
           .filter((item) => item["Name"].length && item["Name"] !== "name");
 
         scribesTableData.sort(
           (a, b) => b["Meetings scribed"] - a["Meetings scribed"]
-        );
-
-        var presenTableData = Object.keys(presentCounts)
-          .map((key) => ({ Name: key, "Meetings present": presentCounts[key] }))
-          .filter((item) => item["Name"].length && item["Name"] !== "name");
-
-        presenTableData.sort(
-          (a, b) => b["Meetings present"] - a["Meetings present"]
         );
 
         drawTable(
@@ -462,6 +476,25 @@ async function scrapeMeetingData() {
           }
         );
 
+        drawBarChart(
+          scribesTableData,
+          "scribes-bar-chart",
+          "Name",
+          "Meetings scribed",
+          "Name",
+          "Meetings Scribed"
+        );
+
+        // Present
+
+        var presenTableData = Object.keys(presentCounts)
+          .map((key) => ({ Name: key, "Meetings present": presentCounts[key] }))
+          .filter((item) => item["Name"].length && item["Name"] !== "name");
+
+        presenTableData.sort(
+          (a, b) => b["Meetings present"] - a["Meetings present"]
+        );
+
         drawTable(
           presenTableData,
           ["Name", "Meetings present"],
@@ -477,43 +510,9 @@ async function scrapeMeetingData() {
           }
         );
 
-        // Create line charts
-        createLineChart(
-          entries.map((entry) => ({
-            date: entry.file.name.substr(0, entry.file.name.indexOf(".md")),
-            participantsCount: entry.participantsCount,
-          })),
-          "line-chart-meetings",
-          "date",
-          "participantsCount",
-          "Meeting",
-          "Participants"
-        );
-        createLineChart(
-          monthEntries.map((entry) => ({
-            month: formatDate(entry.year, entry.month),
-            averageParticipantsCount: entry.averageParticipantsCount,
-          })),
-          "line-chart-monthly",
-          "month",
-          "averageParticipantsCount",
-          "Month",
-          "Average Participants"
-        );
-
-        // draw bar chart
-        drawBarChart(
-          scribesTableData,
-          "bar-chart",
-          "Name",
-          "Meetings scribed",
-          "Name",
-          "Meetings Scribed"
-        );
-
         drawBarChart(
           presenTableData,
-          "bar-chart",
+          "present-bar-chart",
           "Name",
           "Meetings present",
           "Name",
@@ -565,9 +564,11 @@ async function countParticipantsInFile(fileUrl) {
             } else if (line.startsWith("-")) {
               startIndex = line.indexOf("-") + 1;
             }
-          
+
             if (line.includes(",")) {
-              present.push(line.substring(startIndex, line.indexOf(",")).trim());
+              present.push(
+                line.substring(startIndex, line.indexOf(",")).trim()
+              );
             } else {
               present.push(line.substring(startIndex).trim());
             }
