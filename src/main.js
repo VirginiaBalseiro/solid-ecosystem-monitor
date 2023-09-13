@@ -32,7 +32,7 @@ function drawTable(entries, headers, callback) {
   container.appendChild(table);
 }
 
-function createLineChart(
+function drawLineChart(
   data,
   containerId,
   xAxisAccessor,
@@ -273,7 +273,7 @@ function drawBarChart(
     .text(yAxisLabel);
 }
 
-async function scrapeMeetingData() {
+async function main() {
   let isLoading = true;
 
   const progressIndicatorContainer = document.createElement("div");
@@ -410,7 +410,7 @@ async function scrapeMeetingData() {
           tbody.appendChild(row);
         });
 
-        createLineChart(
+        drawLineChart(
           entries.map((entry) => ({
             date: entry.file.name.substr(0, entry.file.name.indexOf(".md")),
             participantsCount: entry.participantsCount,
@@ -439,7 +439,7 @@ async function scrapeMeetingData() {
           }
         );
 
-        createLineChart(
+        drawLineChart(
           monthEntries.map((entry) => ({
             month: formatDate(entry.year, entry.month),
             averageParticipantsCount: entry.averageParticipantsCount,
@@ -655,4 +655,4 @@ async function getScribes(fileUrl) {
   }
 }
 
-scrapeMeetingData();
+main();
