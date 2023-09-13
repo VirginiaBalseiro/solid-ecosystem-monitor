@@ -630,7 +630,7 @@ async function getScribes(fileUrl) {
       let scribes = [];
 
       for (const line of lines) {
-        if (line.startsWith("### Scribes")) {
+        if (line.endsWith("## Scribes")) {
           scribesSection = true;
         } else if (
           scribesSection &&
