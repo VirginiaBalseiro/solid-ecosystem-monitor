@@ -2,6 +2,8 @@ const githubApiUrl = `https://api.github.com/repositories/186702057/contents/mee
 const excludes = ["template.md", "README.md"];
 const container = document.querySelector("main > article");
 
+let meetingCount = 0;
+
 const formatDate = (year, month) => {
   const monthString = (month + 1).toString();
   const formattedMonth =
@@ -9,8 +11,29 @@ const formatDate = (year, month) => {
   return `${year}-${formattedMonth}`;
 };
 
-function drawTable(entries, headers, callback) {
+function drawTable(entries, headers, title, callback) {
   var table = document.createElement("table");
+  const caption = document.createElement("caption");
+  caption.textContent = title;
+  table.append(caption);
+
+  const footer = document.createElement("tfoot");
+  const tr = document.createElement("tr");
+  const td = document.createElement("td");
+  td.colSpan = 2;
+  const dl = document.createElement("dl");
+  const dt1 = document.createElement("dt");
+  const dd1 = document.createElement("dd");
+
+  dt1.textContent = `Number of meetings: `;
+  dd1.textContent = meetingCount;
+
+  dl.appendChild(dt1);
+  dl.appendChild(dd1);
+  td.appendChild(dl);
+  tr.appendChild(td);
+  footer.appendChild(tr);
+
   var thead = document.createElement("thead");
   var headerRow = document.createElement("tr");
   for (var i = 0; i < headers.length; i++) {
@@ -29,6 +52,8 @@ function drawTable(entries, headers, callback) {
   table.appendChild(thead);
   table.appendChild(tbody);
 
+  table.appendChild(footer);
+
   container.appendChild(table);
 }
 
@@ -38,7 +63,8 @@ function drawLineChart(
   xAxisAccessor,
   yAxisAccessor,
   xAxisLabel,
-  yAxisLabel
+  yAxisLabel,
+  title
 ) {
   const margin = { top: 20, right: 30, bottom: 120, left: 50 };
   const width =
@@ -51,6 +77,10 @@ function drawLineChart(
   chartContainer.id = containerId;
   chartContainer.classList.add("chart");
 
+  const heading = document.createElement("h2");
+  heading.textContent = title;
+
+  container.appendChild(heading);
   container.appendChild(chartContainer);
 
   const svg = d3
@@ -60,6 +90,37 @@ function drawLineChart(
     .attr("height", height + margin.top + margin.bottom)
     .append("g")
     .attr("transform", `translate(${margin.left},${margin.top})`);
+
+  const legend = svg.append("g").attr("class", "legend");
+
+  const legendText = legend.append("text").attr("x", 0).attr("y", 20);
+
+  legendText
+    .append("tspan")
+    .html(`Source: <a href="${githubApiUrl}">${githubApiUrl}</a>`)
+    .style("font-size", "12px")
+    .attr("x", 0);
+
+  legendText
+    .append("tspan")
+    .html(`Number of meetings: ${meetingCount}`)
+    .style("font-size", "12px")
+    .attr("x", 0)
+    .attr("dy", "1.2em");
+
+  legendText.attr(
+    "transform",
+    `translate(${width - legend.node().getBoundingClientRect().width}, 0)`
+  );
+
+  chartContainer.id = containerId;
+  chartContainer.classList.add("chart");
+
+  heading.textContent = title;
+
+  container.appendChild(heading);
+
+  container.appendChild(chartContainer);
 
   const xScale = d3
     .scalePoint()
@@ -162,7 +223,8 @@ function drawBarChart(
   xAxisAccessor,
   yAxisAccessor,
   xAxisLabel,
-  yAxisLabel
+  yAxisLabel,
+  title
 ) {
   const margin = { top: 60, right: 60, bottom: 120, left: 100 };
   const width =
@@ -175,6 +237,10 @@ function drawBarChart(
   chartContainer.id = containerId;
   chartContainer.classList.add("chart");
 
+  const heading = document.createElement("h2");
+  heading.textContent = title;
+
+  container.appendChild(heading);
   container.appendChild(chartContainer);
 
   var svg = d3
@@ -184,6 +250,28 @@ function drawBarChart(
     .attr("height", height + margin.top + margin.bottom)
     .append("g")
     .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+  const legend = svg.append("g").attr("class", "legend");
+
+  const legendText = legend.append("text").attr("x", 0).attr("y", 20);
+
+  legendText
+    .append("tspan")
+    .html(`Source: <a href="${githubApiUrl}">${githubApiUrl}</a>`)
+    .style("font-size", "12px")
+    .attr("x", 0);
+
+  legendText
+    .append("tspan")
+    .html(`Number of meetings: ${meetingCount}`)
+    .style("font-size", "12px")
+    .attr("x", 0)
+    .attr("dy", "1.2em");
+
+  legendText.attr(
+    "transform",
+    `translate(${width - legend.node().getBoundingClientRect().width}, 0)`
+  );
 
   var x = d3.scaleBand().range([0, width]).padding(0.1);
   var y = d3.scaleLinear().range([height, 0]);
@@ -300,6 +388,7 @@ async function main() {
     if (response.ok) {
       isLoading = false;
       const files = await response.json();
+      meetingCount = files.length;
       const entries = [];
       const scribes = [];
 
@@ -390,25 +479,30 @@ async function main() {
 
         // Meeting participants
 
-        drawTable(entries, ["Meeting", "Participants"], (entry, tbody) => {
-          var row = document.createElement("tr");
-          row.setAttribute("about", "#" + entry.file.sha);
-          row.setAttribute("typeof", "qb:Observation");
-          var cell0 = document.createElement("td");
-          cell0.setAttribute("property", "sdmx-dimension:refPeriod");
-          cell0.setAttribute("datatype", "xsd:date");
-          var a = document.createElement("a");
-          a.href = entry.file.html_url;
-          a.textContent = entry.file.name.slice(0, -3);
-          cell0.appendChild(a);
-          row.appendChild(cell0);
-          var cell1 = document.createElement("td");
-          cell1.setAttribute("property", "sdmx-measure:obsValue");
-          cell1.setAttribute("datatype", "xsd:int");
-          cell1.textContent = entry.participantsCount;
-          row.appendChild(cell1);
-          tbody.appendChild(row);
-        });
+        drawTable(
+          entries,
+          ["Meeting", "Participants"],
+          "Meeting participation",
+          (entry, tbody) => {
+            var row = document.createElement("tr");
+            row.setAttribute("about", "#" + entry.file.sha);
+            row.setAttribute("typeof", "qb:Observation");
+            var cell0 = document.createElement("td");
+            cell0.setAttribute("property", "sdmx-dimension:refPeriod");
+            cell0.setAttribute("datatype", "xsd:date");
+            var a = document.createElement("a");
+            a.href = entry.file.html_url;
+            a.textContent = entry.file.name.slice(0, -3);
+            cell0.appendChild(a);
+            row.appendChild(cell0);
+            var cell1 = document.createElement("td");
+            cell1.setAttribute("property", "sdmx-measure:obsValue");
+            cell1.setAttribute("datatype", "xsd:int");
+            cell1.textContent = entry.participantsCount;
+            row.appendChild(cell1);
+            tbody.appendChild(row);
+          }
+        );
 
         drawLineChart(
           entries.map((entry) => ({
@@ -419,7 +513,8 @@ async function main() {
           "date",
           "participantsCount",
           "Meeting",
-          "Participants"
+          "Participants",
+          "Meeting participation"
         );
 
         // Monthly average participants
@@ -427,6 +522,7 @@ async function main() {
         drawTable(
           monthEntries,
           ["Month", "Average Participants"],
+          "Average monthly participation",
           (entry, tbody) => {
             var row = document.createElement("tr");
             var cell0 = document.createElement("td");
@@ -448,7 +544,8 @@ async function main() {
           "month",
           "averageParticipantsCount",
           "Month",
-          "Average Participants"
+          "Average Participants",
+          "Average monthly participation"
         );
 
         // Scribes
@@ -464,6 +561,7 @@ async function main() {
         drawTable(
           scribesTableData,
           ["Name", "Meetings scribed"],
+          "Scribes",
           (entry, tbody) => {
             var row = document.createElement("tr");
             var cell0 = document.createElement("td");
@@ -482,11 +580,11 @@ async function main() {
           "Name",
           "Meetings scribed",
           "Name",
-          "Meetings Scribed"
+          "Meetings Scribed",
+          "Scribes"
         );
 
         // Present
-
         var presenTableData = Object.keys(presentCounts)
           .map((key) => ({ Name: key, "Meetings present": presentCounts[key] }))
           .filter((item) => item["Name"].length && item["Name"] !== "name");
@@ -498,6 +596,7 @@ async function main() {
         drawTable(
           presenTableData,
           ["Name", "Meetings present"],
+          "Attendance per participant",
           (entry, tbody) => {
             var row = document.createElement("tr");
             var cell0 = document.createElement("td");
@@ -516,7 +615,8 @@ async function main() {
           "Name",
           "Meetings present",
           "Name",
-          "Meetings present"
+          "Meetings present",
+          "Attendance per participant"
         );
       }
     } else {
