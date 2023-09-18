@@ -403,12 +403,22 @@ async function main() {
           !excludes.includes(file.name)
         ) {
           const markdownFileUrl = file.download_url;
-          const { participantsCount, present } = await countParticipantsInFile(
-            markdownFileUrl
-          );
-          const scribesInFile = await getScribes(markdownFileUrl);
-          scribes.push(...scribesInFile);
-          entries.push({ file, participantsCount, presentList: present });
+          let markdownContent;
+          try {
+            const response = await fetch(markdownFileUrl);
+            if (response.ok) {
+              markdownContent = await response.text();
+
+              const { participantsCount, present } =
+                countParticipantsInFile(markdownContent);
+              const scribesInFile = getScribes(markdownContent);
+              scribes.push(...scribesInFile);
+              entries.push({ file, participantsCount, presentList: present });
+            }
+          } catch (error) {
+            console.error("Error:", error.message);
+            return 0;
+          }
         }
       }
 
@@ -629,130 +639,98 @@ async function main() {
   }
 }
 
-async function countParticipantsInFile(fileUrl) {
-  try {
-    const response = await fetch(fileUrl);
+function countParticipantsInFile(markdownContent) {
+  const lines = markdownContent.split("\n");
+  let participantsSection = false;
+  let participantsCount = 0;
+  let present = [];
 
-    if (response.ok) {
-      const markdownContent = await response.text();
-      const lines = markdownContent.split("\n");
-      let participantsSection = false;
-      let participantsCount = 0;
-      let present = [];
+  const nameRegex =
+    /\[([^\]]+)\]\([^)]+\)|\[([^\]]+)\]\([^\)]+\)|([^(]+)\s*\(([^)]+)\)|([^-]+)\s*-\s+([^-\s]+)|([^-]+) - \(([^)]+)\)|([^-]+) - ([^-]+)/;
 
-      const nameRegex =
-        /\[([^\]]+)\]\([^)]+\)|\[([^\]]+)\]\([^\)]+\)|([^(]+)\s*\(([^)]+)\)|([^-]+)\s*-\s+([^-\s]+)|([^-]+) - \(([^)]+)\)|([^-]+) - ([^-]+)/;
+  for (const line of lines) {
+    if (line.startsWith("## Present")) {
+      participantsSection = true;
+    } else if (
+      participantsSection &&
+      (line.startsWith("-") || line.startsWith("*"))
+    ) {
+      participantsCount++;
+      if (line === "---") {
+        break;
+      }
 
-      for (const line of lines) {
-        if (line.startsWith("## Present")) {
-          participantsSection = true;
-        } else if (
-          participantsSection &&
-          (line.startsWith("-") || line.startsWith("*"))
-        ) {
-          participantsCount++;
-          if (line === "---") {
-            break;
-          }
+      const matches = line.match(nameRegex);
 
-          const matches = line.match(nameRegex);
+      if (!matches) {
+        let startIndex = 0;
+        if (line.startsWith("*")) {
+          startIndex = line.indexOf("*") + 1;
+        } else if (line.startsWith("-")) {
+          startIndex = line.indexOf("-") + 1;
+        }
 
-          if (!matches) {
-            let startIndex = 0;
-            if (line.startsWith("*")) {
-              startIndex = line.indexOf("*") + 1;
-            } else if (line.startsWith("-")) {
-              startIndex = line.indexOf("-") + 1;
-            }
+        if (line.includes(",")) {
+          present.push(line.substring(startIndex, line.indexOf(",")).trim());
+        } else {
+          present.push(line.substring(startIndex).trim());
+        }
+      }
+      if (matches) {
+        for (let i = 1; i <= 8; i++) {
+          if (matches[i]) {
+            let name = matches[i].trim();
 
-            if (line.includes(",")) {
-              present.push(
-                line.substring(startIndex, line.indexOf(",")).trim()
-              );
-            } else {
-              present.push(line.substring(startIndex).trim());
-            }
-          }
-          if (matches) {
-            for (let i = 1; i <= 8; i++) {
-              if (matches[i]) {
-                let name = matches[i].trim();
-
-                if (name.startsWith("[") && name.endsWith("]")) {
-                  const nameMatch = name.match(/\[([^\]]+)\]/);
-                  if (nameMatch) {
-                    name = nameMatch[1].trim();
-                  }
-                }
-                if (name.match(/\s-\s/) && !name.match(/\S+\s-\s\S+/)) {
-                  name = name.split(" - ")[0];
-                }
-                if (name.includes(",")) {
-                  name = name.split(",")[0];
-                }
-                name = name.replace(/[\*\[\]]/g, "").replace(/-\s*$/, "");
-
-                present.push(name.trim());
-                break;
+            if (name.startsWith("[") && name.endsWith("]")) {
+              const nameMatch = name.match(/\[([^\]]+)\]/);
+              if (nameMatch) {
+                name = nameMatch[1].trim();
               }
             }
+            if (name.match(/\s-\s/) && !name.match(/\S+\s-\s\S+/)) {
+              name = name.split(" - ")[0];
+            }
+            if (name.includes(",")) {
+              name = name.split(",")[0];
+            }
+            name = name.replace(/[\*\[\]]/g, "").replace(/-\s*$/, "");
+
+            present.push(name.trim());
+            break;
           }
-        } else if (
-          participantsSection &&
-          participantsCount > 0 &&
-          line.trim() === ""
-        ) {
-          break;
         }
       }
-
-      return { participantsCount, present };
-    } else {
-      console.error(
-        `Failed to fetch Markdown file. Status code: ${response.status}`
-      );
-      return 0;
+    } else if (
+      participantsSection &&
+      participantsCount > 0 &&
+      line.trim() === ""
+    ) {
+      break;
     }
-  } catch (error) {
-    console.error("Error:", error.message);
-    return 0;
   }
+
+  return { participantsCount, present };
 }
 
-async function getScribes(fileUrl) {
-  try {
-    const response = await fetch(fileUrl);
+function getScribes(markdownContent) {
+  const lines = markdownContent.split("\n");
+  let scribesSection = false;
+  let scribes = [];
 
-    if (response.ok) {
-      const markdownContent = await response.text();
-      const lines = markdownContent.split("\n");
-      let scribesSection = false;
-      let scribes = [];
-
-      for (const line of lines) {
-        if (line.endsWith("## Scribes")) {
-          scribesSection = true;
-        } else if (
-          scribesSection &&
-          (line.startsWith("-") || line.startsWith("*"))
-        ) {
-          scribes.push(line.substring(line.indexOf(" ") + 1));
-        } else if (scribesSection && line.trim() === "") {
-          break;
-        }
-      }
-
-      return scribes;
-    } else {
-      console.error(
-        `Failed to fetch Markdown file. Status code: ${response.status}`
-      );
-      return 0;
+  for (const line of lines) {
+    if (line.endsWith("## Scribes")) {
+      scribesSection = true;
+    } else if (
+      scribesSection &&
+      (line.startsWith("-") || line.startsWith("*"))
+    ) {
+      scribes.push(line.substring(line.indexOf(" ") + 1));
+    } else if (scribesSection && line.trim() === "") {
+      break;
     }
-  } catch (error) {
-    console.error("Error:", error.message);
-    return 0;
   }
+
+  return scribes;
 }
 
 main();
