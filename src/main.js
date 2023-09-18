@@ -657,7 +657,7 @@ function countParticipantsInFile(markdownContent) {
     ) {
       participantsCount++;
       if (line === "---") {
-        break;
+        continue;
       }
 
       const matches = line.match(nameRegex);
@@ -717,15 +717,24 @@ function getScribes(markdownContent) {
   let scribesSection = false;
   let scribes = [];
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const nextLine = lines[i+1];
+    if (line.includes("---")) {
+      continue;
+    }
     if (line.endsWith("## Scribes")) {
       scribesSection = true;
-    } else if (
+      if (line.trim() === "" && nextLine.startsWith("*") || nextLine.startsWith("-")) {
+        continue;
+      }
+    } 
+    else if (
       scribesSection &&
       (line.startsWith("-") || line.startsWith("*"))
     ) {
       scribes.push(line.substring(line.indexOf(" ") + 1));
-    } else if (scribesSection && line.trim() === "") {
+    } else if (scribesSection && line.trim() === "" && nextLine && (!(nextLine.startsWith("*") || nextLine.startsWith("-")))) {
       break;
     }
   }
