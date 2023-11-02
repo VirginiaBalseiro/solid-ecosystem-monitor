@@ -20,6 +20,9 @@
 var w3capi = require("node-w3capi");
 const fs = require("fs");
 
+const SOLID_CG_ID = 110151;
+const W3C_INVITED_EXPERTS_ID = 36747;
+
 const handleUsers = async function (err, data) {
   const users = [];
   const orgs = [];
@@ -41,6 +44,8 @@ const handleUsers = async function (err, data) {
         await Promise.all(
           a._links.affiliations.map(async (af) => {
             let aff = await fetch(af.href).then((res) => res.json());
+            if (aff.id === W3C_INVITED_EXPERTS_ID) return;
+
             affiliations.push(aff);
 
             if (!orgsMap[aff.id]) {
@@ -83,7 +88,7 @@ const handleUsers = async function (err, data) {
   fs.writeFileSync("participants.html", html);
 };
 
-w3capi.group(110151).users().fetch(handleUsers);
+w3capi.group(SOLID_CG_ID).users().fetch(handleUsers);
 
 function showOutput(users, orgs, groupData) {
   console.log("------------showOutput:");
