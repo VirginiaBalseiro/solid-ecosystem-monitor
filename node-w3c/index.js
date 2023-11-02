@@ -89,6 +89,8 @@ function showOutput(users, orgs, groupData) {
   console.log("------------showOutput:");
   var tr = [];
 
+  users = sortToLower(users, 'name');
+
   users.forEach(function (user) {
     console.log("### " + user.name);
 
@@ -157,6 +159,8 @@ function showOutput(users, orgs, groupData) {
 function showOrganizations(orgs) {
   var orgsTable = [];
 
+  orgs = sortToLower(orgs, 'name');
+
   orgs.forEach(function (org) {
     var orgId = org.id;
     var orgInfo = org.name;
@@ -198,8 +202,12 @@ function showOrganizations(orgs) {
 }
 
 //from dokieli uri.js
-function sortToLower(array) {
+function sortToLower(array, key) {
   return array.sort(function (a, b) {
+    if (key) {
+      a = a[key];
+      b = b[key];
+    }
     return a.toLowerCase().localeCompare(b.toLowerCase());
   });
 }
