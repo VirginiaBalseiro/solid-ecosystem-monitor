@@ -201,7 +201,7 @@ function showOrganizations(orgs) {
   return orgsTable;
 }
 
-//from dokieli uri.js
+//from dokieli utils.js
 function sortToLower(array, key) {
   return array.sort(function (a, b) {
     if (key) {
