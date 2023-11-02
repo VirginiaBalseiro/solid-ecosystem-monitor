@@ -190,9 +190,9 @@ function showOrganizations(orgs) {
   orgsTable =
     '<table id="organizations"><caption>Organizations</caption><thead><tr><td>Name</td><td>Participants</td><td>Number of participants</td></thead><tbody>' +
     orgsTable.join("") +
-    "</tbody>" +
+    '</tbody><tfoot><tr><td colspan="3">' +
     tfoot.join("") +
-    "</table>";
+    "</td></tr></tfoot></table>";
 
   return orgsTable;
 }
