@@ -225,7 +225,6 @@ function createHTML(title, main, options) {
     <meta charset="utf-8" />\n\
     <meta content="width=device-width, initial-scale=1" name="viewport" />\n\
     <link href="https://dokie.li/media/css/basic.css" media="all" rel="stylesheet" title="Basic" />\n\
-    <link href="https://dokie.li/media/css/dokieli.css" media="all" rel="stylesheet" />\n\
     <title>' +
     title +
     "</title>\n\
