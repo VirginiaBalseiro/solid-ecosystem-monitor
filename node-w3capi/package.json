@@ -10,6 +10,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "node-w3capi": "^2.1.0"
+    "node-w3capi": "^2.1.0",
+    "ora": "^7.0.1",
+    "tablemark": "^3.0.0"
   }
 }

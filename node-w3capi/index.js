@@ -18,20 +18,71 @@
 // }
 
 import fs from "fs";
+import ora from "ora";
+import { checkFsGroup } from "./util.js";
 import { fetchData } from "./api.js";
-import { renderHTML } from "./render.js";
+import { renderHTML } from "./html.js";
+import { renderMarkdown } from "./markdown.js";
 
 const SOLID_CG_ID = 110151;
 
-const { users, orgs } = await fetchData(SOLID_CG_ID);
+const filenames = {
+  json: {
+    users: "users.json",
+    orgs: "orgs.json"
+  },
+  html: {
+    participants: "participants.html"
+  },
+  md: {
+    affiliations: "affiliations.md"
+  }
+}
 
-fs.writeFileSync("users.json", JSON.stringify(users, null, 2));
-fs.writeFileSync("orgs.json", JSON.stringify(orgs, null, 2));
+const spinner = ora("🐌 Starting").start()
 
-const html = renderHTML(users, orgs, {
-  name: "W3C Solid Community Group",
-  description: "test",
-});
+let data
+// check if exist in the filesystem
+if (checkFsGroup(filenames.json)) {
+  spinner.succeed("💾 Found existing local data")
+  data = {
+    users: JSON.parse(fs.readFileSync(filenames.json.users, 'utf-8')),
+    orgs: JSON.parse(fs.readFileSync(filenames.json.orgs, 'utf-8'))
+  }
+} else {
+  spinner.start("☕ Fetching data from W3C API")
+  data = await fetchData(SOLID_CG_ID);
+  spinner.succeed("😅 Fetched data from W3C API")
+  spinner.start("🤖 Writing local data")
+  fs.writeFileSync(filenames.json.users, JSON.stringify(data.users, null, 2));
+  fs.writeFileSync(filenames.json.orgs, JSON.stringify(data.orgs, null, 2));
+  spinner.succeed("💾 Wrote local data")
+}
 
-console.log(html);
-fs.writeFileSync("participants.html", html);
+
+if (checkFsGroup(filenames.html)) {
+  spinner.succeed("💾 Found existing HTML")
+} else {
+  spinner.start("🤖 Generating HTML")
+  const html = renderHTML(data.users, data.orgs, {
+    name: "W3C Solid Community Group",
+    description: "test",
+  });
+
+  fs.writeFileSync(filenames.html.participants, html);
+  spinner.succeed("💾 Generated HTML")
+}
+
+if (checkFsGroup(filenames.md)) {
+  spinner.succeed("💾 Found existing markdown")
+} else {
+  spinner.start("🤖 Generating markdown")
+  const markdown = renderMarkdown(data.users, data.orgs, {
+    name: "W3C Solid Community Group",
+    description: "test",
+  });
+  fs.writeFileSync(filenames.md.affiliations, markdown);
+  spinner.succeed("💾 Generated markdown")
+}
+
+spinner.stop()
