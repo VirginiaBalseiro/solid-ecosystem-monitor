@@ -19,7 +19,6 @@
 
 import fs from "fs";
 import ora from "ora";
-import { checkFsGroup } from "./util.js";
 import { fetchData } from "./api.js";
 import { renderHTML } from "./html.js";
 import { renderMarkdown } from "./markdown.js";
@@ -42,8 +41,13 @@ const filenames = {
 const spinner = ora("🐌 Starting").start()
 
 let data
+
+function localDataExists(record) {
+  return Object.values(record).every(filename => fs.existsSync(filename))
+}
+
 // check if exist in the filesystem
-if (checkFsGroup(filenames.json)) {
+if (localDataExists(filenames.json)) {
   spinner.succeed("💾 Found existing local data")
   data = {
     users: JSON.parse(fs.readFileSync(filenames.json.users, 'utf-8')),
@@ -60,29 +64,20 @@ if (checkFsGroup(filenames.json)) {
 }
 
 
-if (checkFsGroup(filenames.html)) {
-  spinner.succeed("💾 Found existing HTML")
-} else {
-  spinner.start("🤖 Generating HTML")
-  const html = renderHTML(data.users, data.orgs, {
-    name: "W3C Solid Community Group",
-    description: "test",
-  });
+spinner.start("🤖 Generating HTML")
+const html = renderHTML(data.users, data.orgs, {
+  name: "W3C Solid Community Group",
+  description: "test",
+});
+fs.writeFileSync(filenames.html.participants, html);
+spinner.succeed("Generated HTML")
 
-  fs.writeFileSync(filenames.html.participants, html);
-  spinner.succeed("💾 Generated HTML")
-}
-
-if (checkFsGroup(filenames.md)) {
-  spinner.succeed("💾 Found existing markdown")
-} else {
-  spinner.start("🤖 Generating markdown")
-  const markdown = renderMarkdown(data.users, data.orgs, {
-    name: "W3C Solid Community Group",
-    description: "test",
-  });
-  fs.writeFileSync(filenames.md.affiliations, markdown);
-  spinner.succeed("💾 Generated markdown")
-}
+spinner.start("🤖 Generating markdown")
+const markdown = renderMarkdown(data.users, data.orgs, {
+  name: "W3C Solid Community Group",
+  description: "test",
+});
+fs.writeFileSync(filenames.md.affiliations, markdown);
+spinner.succeed("Generated markdown")
 
 spinner.stop()
