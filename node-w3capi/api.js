@@ -8,10 +8,8 @@ export async function fetchData(groupId) {
   const orgsMap = {};
 
   for (const user of groupUsers) {
-    console.log("# GET " + user.href);
     const userData = await fetch(user.href).then((res) => res.json());
 
-    console.log("# GET " + userData._links.affiliations.href);
     const userAffiliationsData = await fetch(userData._links.affiliations.href).then((res) =>
       res.json()
     );
@@ -46,5 +44,15 @@ export async function fetchData(groupId) {
     });
   }
 
-  return { users, orgs: Object.values(orgsMap) }
+  const orgs = Object.values(orgsMap)
+
+  // sort by org name
+  orgs.sort((a, b) => a.name.localeCompare(b.name, "en", { ignorePunctuation: true }))
+
+  // sort users by w3c id
+  orgs.forEach(organization => {
+    organization.orgUsers.sort((a, b) => a.id - b.id)
+  })
+
+  return { users, orgs }
 }

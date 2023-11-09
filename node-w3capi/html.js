@@ -1,12 +1,9 @@
 export function renderHTML(users, orgs, groupData) {
-  console.log("------------showOutput:");
   var tr = [];
 
   users = sortToLower(users, 'name');
 
   users.forEach(function (user) {
-    console.log("### " + user.name);
-
     var userId = user.id;
     var userIdAboutType =
       ' about="https://www.w3.org/users/' +
