@@ -3,4 +3,6 @@ node_modules
 users.json
 orgs.json
 participants.html
-affiliations.md
+affiliation-default-voters.md
+affiliation-designated-voters.md
+eligible-voters.txt

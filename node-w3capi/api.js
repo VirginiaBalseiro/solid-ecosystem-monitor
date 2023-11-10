@@ -2,6 +2,10 @@ import w3capi from "node-w3capi"
 
 const W3C_INVITED_EXPERTS_ID = 36747;
 
+export function alphaSort(a, b) {
+  return a.localeCompare(b, "en", { ignorePunctuation: true })
+}
+
 export async function fetchData(groupId) {
   const groupUsers = await w3capi.group(groupId).users().fetch();
   const users = [];
@@ -46,10 +50,11 @@ export async function fetchData(groupId) {
 
   const orgs = Object.values(orgsMap)
 
-  // sort by org name
-  orgs.sort((a, b) => a.name.localeCompare(b.name, "en", { ignorePunctuation: true }))
+  // sort by name
+  users.sort((a, b) => alphaSort(a.name, b.name))
+  orgs.sort((a, b) => alphaSort(a.name, b.name))
 
-  // sort users by w3c id
+  // sort org users by w3c id
   orgs.forEach(organization => {
     organization.orgUsers.sort((a, b) => a.id - b.id)
   })
