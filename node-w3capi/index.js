@@ -19,9 +19,9 @@
 
 import fs from "fs";
 import ora from "ora";
-import { fetchData } from "./api.js";
+import tablemark from 'tablemark'
+import { fetchData, alphaSort} from "./api.js";
 import { renderHTML } from "./html.js";
-import { renderMarkdown } from "./markdown.js";
 
 const SOLID_CG_ID = 110151;
 
@@ -34,7 +34,11 @@ const filenames = {
     participants: "participants.html"
   },
   md: {
-    affiliations: "affiliations.md"
+    default: "affiliation-default-voters.md",
+    designated: "affiliation-designated-voters.md"
+  },
+  txt: {
+    voters: "eligible-voters.txt"
   }
 }
 
@@ -63,7 +67,6 @@ if (localDataExists(filenames.json)) {
   spinner.succeed("💾 Wrote local data")
 }
 
-
 spinner.start("🤖 Generating HTML")
 const html = renderHTML(data.users, data.orgs, {
   name: "W3C Solid Community Group",
@@ -72,12 +75,38 @@ const html = renderHTML(data.users, data.orgs, {
 fs.writeFileSync(filenames.html.participants, html);
 spinner.succeed("Generated HTML")
 
+const nonSingularOrgs = data.orgs.filter(org => org.orgUsers.length > 1)
+
 spinner.start("🤖 Generating markdown")
-const markdown = renderMarkdown(data.users, data.orgs, {
-  name: "W3C Solid Community Group",
-  description: "test",
-});
-fs.writeFileSync(filenames.md.affiliations, markdown);
+  const markdown = tablemark(nonSingularOrgs
+    .map(o => ({
+      name: o.name,
+      members: o.orgUsers.length,
+      default: o.orgUsers[0].name,
+      designated: ''
+    }))
+  )
+fs.writeFileSync(filenames.md.default, markdown);
 spinner.succeed("Generated markdown")
+
+if (localDataExists(filenames.md)) {
+  spinner.start("🤖 Generating eligible voters list")
+  const representativesTable = fs.readFileSync(filenames.md.designated, 'utf-8')
+    .split('\n').slice(2).filter(Boolean)
+
+  const orgRepresentatives = representativesTable.map(row => {
+    const fallback = row.split('|')[3].trim()
+    const designated = row.split('|')[4].trim()
+    return designated || fallback
+  })
+
+  const simpleVoters = data.users
+    .filter(user => !nonSingularOrgs.some(org => org.orgUsers.find(u => u.id === user.id)))
+    .map(user => user.name)
+  const eligibleVoters = [...simpleVoters, ...orgRepresentatives]
+  eligibleVoters.sort(alphaSort)
+  fs.writeFileSync(filenames.txt.voters, eligibleVoters.join('\n') + '\n');
+  spinner.succeed("Generated eligible voters list")
+}
 
 spinner.stop()
