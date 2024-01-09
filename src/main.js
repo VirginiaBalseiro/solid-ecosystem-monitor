@@ -1,8 +1,121 @@
 const githubApiUrl = `https://api.github.com/repositories/186702057/contents/meetings`;
 const excludes = ["template.md", "README.md"];
 const container = document.querySelector("main > article");
-
+const BALLOTS_URL =
+  "https://raw.githubusercontent.com/w3c-cg/solid/main/elections/2023/ballots-anonymised.blt";
 let meetingCount = 0;
+
+function countVotes(ballotData) {
+  const candidates = {};
+
+  const rows = ballotData.trim().split("\n");
+
+  rows.forEach((row) => {
+    const candidateNumbers = row.split(" ").slice(1, -1);
+
+    const unrankedCandidates = new Set(Object.keys(candidates));
+
+    candidateNumbers.forEach((candidate, index) => {
+      if (!candidates[candidate]) {
+        candidates[candidate] = {
+          votes: Array(candidateNumbers.length).fill(0),
+          unranked: 0,
+        };
+      }
+      candidates[candidate].votes[index]++;
+      unrankedCandidates.delete(candidate);
+    });
+
+    unrankedCandidates.forEach((unrankedCandidate) => {
+      candidates[unrankedCandidate].unranked++;
+    });
+  });
+
+  return candidates;
+}
+
+function calculatePercentage(ballotData) {
+  const candidates = countVotes(ballotData);
+
+  const rows = ballotData.trim().split("\n");
+
+  const totalVotes = rows.length;
+
+  const percentages = {};
+
+  Object.entries(candidates).forEach(([candidate, { votes, unranked }]) => {
+    const firstPlaceVotes = votes[0];
+
+    const unrankedVotes = unranked;
+
+    percentages[candidate] = {
+      firstPlace: (firstPlaceVotes / totalVotes) * 100,
+      unranked: (unrankedVotes / totalVotes) * 100,
+    };
+  });
+
+  return percentages;
+}
+
+function generateElectionTable(data, count) {
+  
+  const headers = [
+    "Candidate",
+    "Ranked 1st",
+    "Ranked 2nd",
+    "Ranked 3rd",
+    "Ranked 4th",
+    "Ranked 5th",
+    "Unranked",
+  ];
+
+  const title = "Election Results";
+
+  drawTable(
+    Object.entries(data),
+    headers,
+    title,
+    (entry, tbody) => {
+      const [candidate, { votes, unranked }] = entry;
+      const [firstPlace, secondPlace, thirdPlace, fourthPlace, fifthPlace] =
+        votes;
+      const totalVotes =
+        firstPlace +
+        secondPlace +
+        thirdPlace +
+        fourthPlace +
+        fifthPlace +
+        unranked;
+
+      const row = document.createElement("tr");
+
+      const candidateCell = document.createElement("td");
+      candidateCell.textContent = candidate;
+      row.appendChild(candidateCell);
+
+      const cells = [
+        firstPlace,
+        secondPlace,
+        thirdPlace,
+        fourthPlace,
+        fifthPlace,
+        unranked,
+      ];
+
+      cells.forEach((value, index) => {
+        const cell = document.createElement("td");
+        const percentage = ((value / totalVotes) * 100).toFixed(2);
+        cell.textContent = `${String(value)} (${percentage}%)`;
+        row.appendChild(cell);
+      });
+
+      tbody.appendChild(row);
+    },
+    "election",
+    count
+  );
+}
+
 
 const formatDate = (year, month) => {
   const monthString = (month + 1).toString();
@@ -11,7 +124,7 @@ const formatDate = (year, month) => {
   return `${year}-${formattedMonth}`;
 };
 
-function drawTable(entries, headers, title, callback) {
+function drawTable(entries, headers, title, callback, tableType, count) {
   var table = document.createElement("table");
   const caption = document.createElement("caption");
   caption.textContent = title;
@@ -25,8 +138,12 @@ function drawTable(entries, headers, title, callback) {
   const dt1 = document.createElement("dt");
   const dd1 = document.createElement("dd");
 
-  dt1.textContent = `Number of meetings: `;
-  dd1.textContent = meetingCount;
+  if (tableType === "participation") {
+    dt1.textContent = `Number of meetings: `;
+  } else if (tableType === "election") {
+    dt1.textContent = `Number of ballots: `;
+  }
+  dd1.textContent = count;
 
   dl.appendChild(dt1);
   dl.appendChild(dd1);
@@ -511,7 +628,9 @@ async function main() {
             cell1.textContent = entry.participantsCount;
             row.appendChild(cell1);
             tbody.appendChild(row);
-          }
+          },
+          "participation",
+          meetingCount
         );
 
         drawLineChart(
@@ -542,7 +661,9 @@ async function main() {
             cell1.textContent = `${Math.floor(entry.averageParticipantsCount)}`;
             row.appendChild(cell1);
             tbody.appendChild(row);
-          }
+          },
+          "participation",
+          meetingCount
         );
 
         drawLineChart(
@@ -581,7 +702,9 @@ async function main() {
             cell1.textContent = entry["Meetings scribed"];
             row.appendChild(cell1);
             tbody.appendChild(row);
-          }
+          },
+          "participation",
+          meetingCount
         );
 
         drawBarChart(
@@ -616,7 +739,9 @@ async function main() {
             cell1.textContent = entry["Meetings present"];
             row.appendChild(cell1);
             tbody.appendChild(row);
-          }
+          },
+          "participation",
+          meetingCount
         );
 
         drawBarChart(
@@ -628,6 +753,21 @@ async function main() {
           "Meetings present",
           "Attendance per participant"
         );
+
+        //Election table
+        // TODO: move this to dedicated page
+        try {
+          const electionData = await fetch(BALLOTS_URL).then((r) => r.text());
+          const lines = electionData.split("\n");
+          const ballots = lines.slice(1, lines.length - 8).join('\n');
+          const ballotCount = lines.length - 9;
+          const votes = countVotes(ballots);
+          const table = generateElectionTable(votes, ballotCount);
+          console.log(table);
+        } catch (error) {
+          console.log(error);
+        }
+
       }
     } else {
       console.error(
@@ -719,22 +859,29 @@ function getScribes(markdownContent) {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const nextLine = lines[i+1];
+    const nextLine = lines[i + 1];
     if (line.includes("---")) {
       continue;
     }
     if (line.endsWith("## Scribes")) {
       scribesSection = true;
-      if (line.trim() === "" && nextLine.startsWith("*") || nextLine.startsWith("-")) {
+      if (
+        (line.trim() === "" && nextLine.startsWith("*")) ||
+        nextLine.startsWith("-")
+      ) {
         continue;
       }
-    } 
-    else if (
+    } else if (
       scribesSection &&
       (line.startsWith("-") || line.startsWith("*"))
     ) {
       scribes.push(line.substring(line.indexOf(" ") + 1));
-    } else if (scribesSection && line.trim() === "" && nextLine && (!(nextLine.startsWith("*") || nextLine.startsWith("-")))) {
+    } else if (
+      scribesSection &&
+      line.trim() === "" &&
+      nextLine &&
+      !(nextLine.startsWith("*") || nextLine.startsWith("-"))
+    ) {
       break;
     }
   }
