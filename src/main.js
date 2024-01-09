@@ -775,7 +775,7 @@ async function main() {
           const lines = electionData.split("\n");
           const ballots = lines.slice(1, lines.length - 8).join('\n');
           const ballotCount = lines.length - 9;
-          const details = { 'Number of ballots': ballotCount };
+          const details = { 'Number of ballots': ballotCount, 'Source': BALLOTS_URL };
           const votes = countVotes(ballots);
           const table = generateElectionTable(votes, details);
           console.log(table);
