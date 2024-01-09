@@ -133,7 +133,7 @@ function drawTable(entries, headers, title, callback, tableType, details) {
   const footer = document.createElement("tfoot");
   const tr = document.createElement("tr");
   const td = document.createElement("td");
-  td.colSpan = 2;
+  td.colSpan = headers.length;
 
   if (details) {
   const dl = document.createElement("dl");
