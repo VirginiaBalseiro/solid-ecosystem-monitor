@@ -57,8 +57,8 @@ function calculatePercentage(ballotData) {
   return percentages;
 }
 
-function generateElectionTable(data, count) {
-  
+function generateElectionTable(data, details) {
+
   const headers = [
     "Candidate",
     "Ranked 1st",
@@ -112,7 +112,7 @@ function generateElectionTable(data, count) {
       tbody.appendChild(row);
     },
     "election",
-    count
+    details
   );
 }
 
@@ -124,7 +124,7 @@ const formatDate = (year, month) => {
   return `${year}-${formattedMonth}`;
 };
 
-function drawTable(entries, headers, title, callback, tableType, count) {
+function drawTable(entries, headers, title, callback, tableType, details) {
   var table = document.createElement("table");
   const caption = document.createElement("caption");
   caption.textContent = title;
@@ -134,20 +134,33 @@ function drawTable(entries, headers, title, callback, tableType, count) {
   const tr = document.createElement("tr");
   const td = document.createElement("td");
   td.colSpan = 2;
+
+  if (details) {
   const dl = document.createElement("dl");
-  const dt1 = document.createElement("dt");
-  const dd1 = document.createElement("dd");
 
-  if (tableType === "participation") {
-    dt1.textContent = `Number of meetings: `;
-  } else if (tableType === "election") {
-    dt1.textContent = `Number of ballots: `;
-  }
-  dd1.textContent = count;
+  Object.keys(details).forEach(function(dt) {
+    var dt1 = document.createElement("dt");
+    var dd1 = document.createElement("dd");
 
-  dl.appendChild(dt1);
-  dl.appendChild(dd1);
+    dt1.textContent = dt;
+
+    if (dt == 'Source') {
+      var a = document.createElement("a");
+      a.setAttribute("href", details[dt]);
+      a.textContent = details[dt];
+      dd1.appendChild(a);
+    }
+    else {
+      dd1.textContent = details[dt];
+    }
+
+    dl.appendChild(dt1);
+    dl.appendChild(dd1);
+  });
+
   td.appendChild(dl);
+  }
+
   tr.appendChild(td);
   footer.appendChild(tr);
 
@@ -506,6 +519,7 @@ async function main() {
       isLoading = false;
       const files = await response.json();
       meetingCount = files.length;
+      const details = { 'Number of meetings': meetingCount };
       const entries = [];
       const scribes = [];
 
@@ -630,7 +644,7 @@ async function main() {
             tbody.appendChild(row);
           },
           "participation",
-          meetingCount
+          details
         );
 
         drawLineChart(
@@ -663,7 +677,7 @@ async function main() {
             tbody.appendChild(row);
           },
           "participation",
-          meetingCount
+          details
         );
 
         drawLineChart(
@@ -704,7 +718,7 @@ async function main() {
             tbody.appendChild(row);
           },
           "participation",
-          meetingCount
+          details
         );
 
         drawBarChart(
@@ -741,7 +755,7 @@ async function main() {
             tbody.appendChild(row);
           },
           "participation",
-          meetingCount
+          details
         );
 
         drawBarChart(
@@ -761,8 +775,9 @@ async function main() {
           const lines = electionData.split("\n");
           const ballots = lines.slice(1, lines.length - 8).join('\n');
           const ballotCount = lines.length - 9;
+          const details = { 'Number of ballots': ballotCount };
           const votes = countVotes(ballots);
-          const table = generateElectionTable(votes, ballotCount);
+          const table = generateElectionTable(votes, details);
           console.log(table);
         } catch (error) {
           console.log(error);
