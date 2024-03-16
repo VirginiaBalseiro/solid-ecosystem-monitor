@@ -815,43 +815,56 @@ function countParticipantsInFile(markdownContent) {
         continue;
       }
 
-      const matches = line.match(nameRegex);
+      if (line.replace(/[*-]/g, "").trim().startsWith("<")) {
+        const htmlContent = line.replace(/[*-]/g, "").trim();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlContent, "text/html");
+        const attendees = doc.querySelectorAll(
+          "[rel='schema:attendee']",
+          "[property='schema:attendee']"
+        );
+        attendees.forEach((attendee) => {
+          present.push(attendee.textContent.trim());
+        });
+      } else {
+        const matches = line.match(nameRegex);
 
-      if (!matches) {
-        let startIndex = 0;
-        if (line.startsWith("*")) {
-          startIndex = line.indexOf("*") + 1;
-        } else if (line.startsWith("-")) {
-          startIndex = line.indexOf("-") + 1;
+        if (!matches) {
+          let startIndex = 0;
+          if (line.startsWith("*")) {
+            startIndex = line.indexOf("*") + 1;
+          } else if (line.startsWith("-")) {
+            startIndex = line.indexOf("-") + 1;
+          }
+
+          if (line.includes(",")) {
+            present.push(line.substring(startIndex, line.indexOf(",")).trim());
+          } else {
+            present.push(line.substring(startIndex).trim());
+          }
         }
+        if (matches) {
+          for (let i = 1; i <= 8; i++) {
+            if (matches[i]) {
+              let name = matches[i].trim();
 
-        if (line.includes(",")) {
-          present.push(line.substring(startIndex, line.indexOf(",")).trim());
-        } else {
-          present.push(line.substring(startIndex).trim());
-        }
-      }
-      if (matches) {
-        for (let i = 1; i <= 8; i++) {
-          if (matches[i]) {
-            let name = matches[i].trim();
-
-            if (name.startsWith("[") && name.endsWith("]")) {
-              const nameMatch = name.match(/\[([^\]]+)\]/);
-              if (nameMatch) {
-                name = nameMatch[1].trim();
+              if (name.startsWith("[") && name.endsWith("]")) {
+                const nameMatch = name.match(/\[([^\]]+)\]/);
+                if (nameMatch) {
+                  name = nameMatch[1].trim();
+                }
               }
-            }
-            if (name.match(/\s-\s/) && !name.match(/\S+\s-\s\S+/)) {
-              name = name.split(" - ")[0];
-            }
-            if (name.includes(",")) {
-              name = name.split(",")[0];
-            }
-            name = name.replace(/[\*\[\]]/g, "").replace(/-\s*$/, "");
+              if (name.match(/\s-\s/) && !name.match(/\S+\s-\s\S+/)) {
+                name = name.split(" - ")[0];
+              }
+              if (name.includes(",")) {
+                name = name.split(",")[0];
+              }
+              name = name.replace(/[\*\[\]]/g, "").replace(/-\s*$/, "");
 
-            present.push(name.trim());
-            break;
+              present.push(name.trim());
+              break;
+            }
           }
         }
       }
