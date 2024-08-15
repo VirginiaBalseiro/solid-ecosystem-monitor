@@ -544,6 +544,7 @@ async function main() {
                 countParticipantsInFile(markdownContent);
               const scribesInFile = getScribes(markdownContent);
               scribes.push(...scribesInFile);
+              file.name = file.name.replace(/_/g, ":");
               entries.push({ file, participantsCount, presentList: present });
             }
           } catch (error) {
