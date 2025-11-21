@@ -19,8 +19,8 @@
 
 import fs from "fs";
 import ora from "ora";
-import tablemark from 'tablemark'
-import { fetchData, alphaSort} from "./api.js";
+import tablemark from "tablemark";
+import { fetchData, alphaSort } from "./api.js";
 import { renderHTML } from "./html.js";
 
 const SOLID_CG_ID = 110151;
@@ -28,85 +28,99 @@ const SOLID_CG_ID = 110151;
 const filenames = {
   json: {
     users: "users.json",
-    orgs: "orgs.json"
+    orgs: "orgs.json",
   },
   html: {
-    participants: "participants.html"
+    participants: "participants.html",
   },
   md: {
     default: "affiliation-default-voters.md",
-    designated: "affiliation-designated-voters.md"
+    designated: "affiliation-designated-voters.md",
   },
   txt: {
-    voters: "eligible-voters.txt"
-  }
-}
+    voters: "eligible-voters.txt",
+  },
+};
 
-const spinner = ora("🐌 Starting").start()
+const spinner = ora("🐌 Starting").start();
 
-let data
+let data;
 
 function localDataExists(record) {
-  return Object.values(record).every(filename => fs.existsSync(filename))
+  return Object.values(record).every((filename) => fs.existsSync(filename));
 }
 
 // check if exist in the filesystem
 if (localDataExists(filenames.json)) {
-  spinner.succeed("💾 Found existing local data")
+  spinner.succeed("💾 Found existing local data");
   data = {
-    users: JSON.parse(fs.readFileSync(filenames.json.users, 'utf-8')),
-    orgs: JSON.parse(fs.readFileSync(filenames.json.orgs, 'utf-8'))
-  }
+    users: JSON.parse(fs.readFileSync(filenames.json.users, "utf-8")),
+    orgs: JSON.parse(fs.readFileSync(filenames.json.orgs, "utf-8")),
+  };
 } else {
-  spinner.start("☕ Fetching data from W3C API")
+  spinner.start("☕ Fetching data from W3C API");
   data = await fetchData(SOLID_CG_ID);
-  spinner.succeed("😅 Fetched data from W3C API")
-  spinner.start("🤖 Writing local data")
+  spinner.succeed("😅 Fetched data from W3C API");
+  spinner.start("🤖 Writing local data");
   fs.writeFileSync(filenames.json.users, JSON.stringify(data.users, null, 2));
   fs.writeFileSync(filenames.json.orgs, JSON.stringify(data.orgs, null, 2));
-  spinner.succeed("💾 Wrote local data")
+  spinner.succeed("💾 Wrote local data");
 }
 
-spinner.start("🤖 Generating HTML")
+spinner.start("🤖 Generating HTML");
 const html = renderHTML(data.users, data.orgs, {
   name: "W3C Solid Community Group",
   description: "test",
 });
 fs.writeFileSync(filenames.html.participants, html);
-spinner.succeed("Generated HTML")
+spinner.succeed("Generated HTML");
 
-const nonSingularOrgs = data.orgs.filter(org => org.orgUsers.length > 1)
+const nonSingularOrgs = data.orgs.filter((org) => org.orgUsers.length > 1);
 
-spinner.start("🤖 Generating markdown")
-  const markdown = tablemark(nonSingularOrgs
-    .map(o => ({
+spinner.start("🤖 Generating markdown");
+if (nonSingularOrgs.length === 0) {
+  spinner.warn(
+    "No organisations with more than one member — skipping markdown"
+  );
+} else {
+  const markdown = tablemark(
+    nonSingularOrgs.map((o) => ({
       name: o.name,
       members: o.orgUsers.length,
       default: o.orgUsers[0].name,
-      designated: ''
+      designated: "",
     }))
-  )
-fs.writeFileSync(filenames.md.default, markdown);
-spinner.succeed("Generated markdown")
-
-if (localDataExists(filenames.md)) {
-  spinner.start("🤖 Generating eligible voters list")
-  const representativesTable = fs.readFileSync(filenames.md.designated, 'utf-8')
-    .split('\n').slice(2).filter(Boolean)
-
-  const orgRepresentatives = representativesTable.map(row => {
-    const fallback = row.split('|')[3].trim()
-    const designated = row.split('|')[4].trim()
-    return designated || fallback
-  })
-
-  const simpleVoters = data.users
-    .filter(user => !nonSingularOrgs.some(org => org.orgUsers.find(u => u.id === user.id)))
-    .map(user => user.name)
-  const eligibleVoters = [...simpleVoters, ...orgRepresentatives]
-  eligibleVoters.sort(alphaSort)
-  fs.writeFileSync(filenames.txt.voters, eligibleVoters.join('\n') + '\n');
-  spinner.succeed("Generated eligible voters list")
+  );
+  fs.writeFileSync(filenames.md.default, markdown);
+  spinner.succeed("Generated markdown");
 }
 
-spinner.stop()
+if (localDataExists(filenames.md)) {
+  spinner.start("🤖 Generating eligible voters list");
+  const representativesTable = fs
+    .readFileSync(filenames.md.designated, "utf-8")
+    .split("\n")
+    .slice(2)
+    .filter(Boolean);
+
+  const orgRepresentatives = representativesTable.map((row) => {
+    const fallback = row.split("|")[3].trim();
+    const designated = row.split("|")[4].trim();
+    return designated || fallback;
+  });
+
+  const simpleVoters = data.users
+    .filter(
+      (user) =>
+        !nonSingularOrgs.some((org) =>
+          org.orgUsers.find((u) => u.id === user.id)
+        )
+    )
+    .map((user) => user.name);
+  const eligibleVoters = [...simpleVoters, ...orgRepresentatives];
+  eligibleVoters.sort(alphaSort);
+  fs.writeFileSync(filenames.txt.voters, eligibleVoters.join("\n") + "\n");
+  spinner.succeed("Generated eligible voters list");
+}
+
+spinner.stop();
