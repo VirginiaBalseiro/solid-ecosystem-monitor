@@ -7,50 +7,31 @@ export function alphaSort(a, b) {
 }
 
 export async function fetchData(groupId) {
-  const groupUsers = await w3capi.group(groupId).users().fetch();
+  const groupUsers = await w3capi.group(groupId).users().fetch({ embed: true });
+
   const users = [];
   const orgsMap = {};
 
-  for (const user of groupUsers) {
-    const userData = await fetch(user.href).then((res) => res.json());
+  for (const userData of groupUsers) {
+    const userAffiliations = await w3capi
+      .user(userData._links.self.href.split("/").pop())
+      .affiliations()
+      .fetch({ embed: true })
+      .then((data) => data.filter((org) => org.id !== W3C_INVITED_EXPERTS_ID));
 
-    const userAffiliationsData = await fetch(
-      userData._links.affiliations.href
-    ).then((res) => res.json());
+    for (const organizationData of userAffiliations) {
+      if (!orgsMap[organizationData.id]) {
+        orgsMap[organizationData.id] = {
+          id: organizationData.id,
+          name: organizationData.name,
+          orgUsers: [],
+        };
+      }
 
-    const userAffiliations = [];
-
-    if (userAffiliationsData._links.affiliations) {
-      await Promise.all(
-        userAffiliationsData._links.affiliations.map(async (affiliation) => {
-          const affiliationData = await fetch(affiliation.href).then((res) =>
-            res.json()
-          );
-
-          const orgHref = affiliationData._links.self.href;
-
-          const organizationData = await fetch(orgHref).then((res) =>
-            res.json()
-          );
-
-          if (organizationData.id === W3C_INVITED_EXPERTS_ID) return;
-
-          userAffiliations.push(organizationData);
-
-          if (!orgsMap[organizationData.id]) {
-            orgsMap[organizationData.id] = {
-              id: organizationData.id,
-              name: organizationData.name,
-              orgUsers: [],
-            };
-          }
-
-          orgsMap[organizationData.id].orgUsers.push({
-            name: userData.name,
-            id: userData.id,
-          });
-        })
-      );
+      orgsMap[organizationData.id].orgUsers.push({
+        name: userData.name,
+        id: userData.id,
+      });
     }
 
     users.push({
