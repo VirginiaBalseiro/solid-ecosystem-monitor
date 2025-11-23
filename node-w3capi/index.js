@@ -18,9 +18,10 @@
 // }
 
 import fs from "fs";
+import path from "node:path";
 import ora from "ora";
 import tablemark from "tablemark";
-import { fetchData, alphaSort } from "./api.js";
+import { alphaSort, fetchData } from "./api.js";
 import { renderHTML } from "./html.js";
 
 const SOLID_CG_ID = 110151;
@@ -42,28 +43,48 @@ const filenames = {
   },
 };
 
+const outputDir = "data";
+
+if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+
+const paths = buildPaths(filenames, outputDir);
+
 const spinner = ora("🐌 Starting").start();
 
 let data;
 
 function localDataExists(record) {
-  return Object.values(record).every((filename) => fs.existsSync(filename));
+  return Object.values(record).every((path) => fs.existsSync(path));
+}
+
+function buildPaths(filenames, baseDir) {
+  const result = {};
+
+  for (const [key, value] of Object.entries(filenames)) {
+    if (typeof value === "string") {
+      result[key] = path.join(baseDir, value);
+    } else if (typeof value === "object") {
+      result[key] = buildPaths(value, baseDir);
+    }
+  }
+
+  return result;
 }
 
 // check if exist in the filesystem
-if (localDataExists(filenames.json)) {
+if (localDataExists(paths.json)) {
   spinner.succeed("💾 Found existing local data");
   data = {
-    users: JSON.parse(fs.readFileSync(filenames.json.users, "utf-8")),
-    orgs: JSON.parse(fs.readFileSync(filenames.json.orgs, "utf-8")),
+    users: JSON.parse(fs.readFileSync(paths.json.users, "utf-8")),
+    orgs: JSON.parse(fs.readFileSync(paths.json.orgs, "utf-8")),
   };
 } else {
   spinner.start("☕ Fetching data from W3C API");
   data = await fetchData(SOLID_CG_ID);
   spinner.succeed("😅 Fetched data from W3C API");
   spinner.start("🤖 Writing local data");
-  fs.writeFileSync(filenames.json.users, JSON.stringify(data.users, null, 2));
-  fs.writeFileSync(filenames.json.orgs, JSON.stringify(data.orgs, null, 2));
+  fs.writeFileSync(paths.json.users, JSON.stringify(data.users, null, 2));
+  fs.writeFileSync(paths.json.orgs, JSON.stringify(data.orgs, null, 2));
   spinner.succeed("💾 Wrote local data");
 }
 
@@ -72,7 +93,7 @@ const html = renderHTML(data.users, data.orgs, {
   name: "W3C Solid Community Group",
   description: "test",
 });
-fs.writeFileSync(filenames.html.participants, html);
+fs.writeFileSync(paths.html.participants, html);
 spinner.succeed("Generated HTML");
 
 const nonSingularOrgs = data.orgs.filter((org) => org.orgUsers.length > 1);
@@ -91,14 +112,14 @@ if (nonSingularOrgs.length === 0) {
       designated: "",
     }))
   );
-  fs.writeFileSync(filenames.md.default, markdown);
+  fs.writeFileSync(paths.md.default, markdown);
   spinner.succeed("Generated markdown");
 }
 
-if (localDataExists(filenames.md)) {
+if (localDataExists(paths.md)) {
   spinner.start("🤖 Generating eligible voters list");
   const representativesTable = fs
-    .readFileSync(filenames.md.designated, "utf-8")
+    .readFileSync(paths.md.designated, "utf-8")
     .split("\n")
     .slice(2)
     .filter(Boolean);
@@ -119,7 +140,7 @@ if (localDataExists(filenames.md)) {
     .map((user) => user.name);
   const eligibleVoters = [...simpleVoters, ...orgRepresentatives];
   eligibleVoters.sort(alphaSort);
-  fs.writeFileSync(filenames.txt.voters, eligibleVoters.join("\n") + "\n");
+  fs.writeFileSync(paths.txt.voters, eligibleVoters.join("\n") + "\n");
   spinner.succeed("Generated eligible voters list");
 }
 
