@@ -31,4 +31,8 @@ Output can be found in `data` directory.
 
 ### participants.html
 
+### participants.txt
+
+A snapshot of CG participants (humans) as plaintext
+
 ### users.json
