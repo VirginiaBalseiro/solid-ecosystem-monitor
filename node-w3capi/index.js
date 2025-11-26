@@ -39,6 +39,7 @@ const filenames = {
     designated: "affiliation-designated-voters.md",
   },
   txt: {
+    participants: "participants.txt",
     voters: "eligible-voters.txt",
   },
 };
@@ -115,6 +116,12 @@ if (nonSingularOrgs.length === 0) {
   fs.writeFileSync(paths.md.default, markdown);
   spinner.succeed("Generated markdown");
 }
+
+spinner.start("🤖 Generating TXT");
+const participants = data.users.map((user) => user.name);
+participants.sort(alphaSort);
+fs.writeFileSync(paths.txt.participants, participants.join("\n") + "\n");
+spinner.succeed("Generated TXT");
 
 if (localDataExists(paths.md)) {
   spinner.start("🤖 Generating eligible voters list");
