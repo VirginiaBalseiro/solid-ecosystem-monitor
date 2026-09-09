@@ -684,8 +684,6 @@ async function drawHallOfFame() {
         `Expand a row to see who commented.`
     )
   );
-  const status = el("p", "Fetching data...");
-  section.appendChild(status);
   container.appendChild(section);
 
   const tabs = [
@@ -701,10 +699,9 @@ async function drawHallOfFame() {
       })
     );
   } catch (error) {
-    status.textContent = error.message;
+    section.appendChild(el("p", error.message));
     return;
   }
-  section.removeChild(status);
 
   const tablist = el("div", undefined, { role: "tablist" });
   section.appendChild(tablist);
@@ -737,10 +734,6 @@ async function drawHallOfFame() {
 }
 
 async function main() {
-  let isLoading = true;
-
-  drawHallOfFame();
-
   const progressIndicatorContainer = document.createElement("div");
   progressIndicatorContainer.id = "progress-indicator-container";
   const progressIndicator = document.createElement("progress");
@@ -752,18 +745,16 @@ async function main() {
   progressIndicator.max = 100;
   progressIndicatorContainer.appendChild(progressIndicatorLabel);
   progressIndicatorContainer.appendChild(progressIndicator);
+  container.appendChild(progressIndicatorContainer);
+
+  const hallOfFame = drawHallOfFame();
 
   try {
     const response = await fetch(githubApiUrl, {
       method: "GET",
     });
 
-    if (isLoading) {
-      container.appendChild(progressIndicatorContainer);
-    }
-
     if (response.ok) {
-      isLoading = false;
       const files = await response.json();
       meetingCount = files.length;
       const details = { 'Number of meetings': meetingCount };
@@ -863,9 +854,7 @@ async function main() {
         ),
       }));
 
-      if (!isLoading) {
-        container.removeChild(progressIndicatorContainer);
-
+      {
         // Meeting participants
 
         drawTable(
@@ -1033,12 +1022,16 @@ async function main() {
 
       }
     } else {
-      console.error(
-        `Failed to fetch directory contents. Status code: ${response.status}`
+      throw new Error(
+        `Failed to fetch meeting minutes. Status code: ${response.status}`
       );
     }
   } catch (error) {
     console.error("Error:", error.message);
+    container.appendChild(el("p", error.message));
+  } finally {
+    await hallOfFame;
+    container.removeChild(progressIndicatorContainer);
   }
 }
 
