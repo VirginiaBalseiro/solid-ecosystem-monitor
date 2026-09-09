@@ -491,8 +491,255 @@ function drawBarChart(
     .text(yAxisLabel);
 }
 
+const HALL_OF_FAME_REPO = "solid/specification";
+const HALL_OF_FAME_TOP = 20;
+const GITHUB_API = "https://api.github.com";
+
+async function githubJson(url) {
+  const response = await fetch(url, {
+    headers: { Accept: "application/vnd.github+json" },
+  });
+  if (!response.ok) {
+    if (response.status === 403 && response.headers.get("x-ratelimit-remaining") === "0") {
+      const reset = new Date(response.headers.get("x-ratelimit-reset") * 1000);
+      throw new Error(`GitHub API rate limit reached, resets at ${reset.toLocaleTimeString()}`);
+    }
+    throw new Error(`GitHub API ${response.status} for ${url}`);
+  }
+  const link = response.headers.get("link") || "";
+  const next = link.match(/<([^>]+)>;\s*rel="next"/);
+  return { body: await response.json(), next: next ? next[1] : null };
+}
+
+async function githubAll(url) {
+  const items = [];
+  while (url) {
+    const { body, next } = await githubJson(url);
+    items.push(...body);
+    url = next;
+  }
+  return items;
+}
+
+// Results are kept in localStorage for an hour to spare the API rate limit.
+async function cached(key, load, maxAgeMs = 60 * 60 * 1000) {
+  try {
+    const stored = JSON.parse(localStorage.getItem(key));
+    if (stored && Date.now() - stored.time < maxAgeMs) return stored.data;
+  } catch (error) {}
+  const data = await load();
+  try {
+    localStorage.setItem(key, JSON.stringify({ time: Date.now(), data }));
+  } catch (error) {}
+  return data;
+}
+
+function el(tag, text, attrs = {}) {
+  const node = document.createElement(tag);
+  if (text !== undefined) node.textContent = text;
+  Object.entries(attrs).forEach(([k, v]) => node.setAttribute(k, v));
+  return node;
+}
+
+// Search ranks by conversation comments only, so PRs also need their
+// review comment counts before the final ranking.
+async function fetchMostCommented(type) {
+  const query = encodeURIComponent(`repo:${HALL_OF_FAME_REPO} is:${type}`);
+  const perPage = type === "pr" ? 30 : HALL_OF_FAME_TOP;
+  const { body } = await githubJson(
+    `${GITHUB_API}/search/issues?q=${query}&sort=comments&order=desc&per_page=${perPage}`
+  );
+  const items = body.items.map((item) => ({
+    number: item.number,
+    title: item.title,
+    url: item.html_url,
+    author: item.user?.login,
+    state: item.state,
+    issue_comments: item.comments,
+    review_comments: 0,
+  }));
+  if (type === "pr") {
+    await Promise.all(
+      items.map(async (item) => {
+        const { body } = await githubJson(
+          `${GITHUB_API}/repos/${HALL_OF_FAME_REPO}/pulls/${item.number}`
+        );
+        item.review_comments = body.review_comments;
+        if (body.merged_at) item.state = "merged";
+      })
+    );
+  }
+  return {
+    total: body.total_count,
+    top: items
+      .map((item) => ({ ...item, total: item.issue_comments + item.review_comments }))
+      .sort((a, b) => b.total - a.total || a.number - b.number)
+      .slice(0, HALL_OF_FAME_TOP),
+  };
+}
+
+async function fetchCommenters(entry, isPullRequest) {
+  const base = `${GITHUB_API}/repos/${HALL_OF_FAME_REPO}`;
+  const urls = [`${base}/issues/${entry.number}/comments?per_page=100`];
+  if (isPullRequest) urls.push(`${base}/pulls/${entry.number}/comments?per_page=100`);
+  const pages = await Promise.all(urls.map(githubAll));
+  const seen = new Set();
+  const counts = {};
+  pages.forEach((comments, kind) => {
+    comments.forEach((comment) => {
+      const id = `${kind}:${comment.id}`;
+      if (seen.has(id) || !comment.body?.trim() || !comment.user?.login) return;
+      seen.add(id);
+      counts[comment.user.login] = (counts[comment.user.login] || 0) + 1;
+    });
+  });
+  return Object.entries(counts)
+    .map(([login, count]) => ({ login, count }))
+    .sort((a, b) => b.count - a.count || a.login.localeCompare(b.login));
+}
+
+function drawCommenters(entry, isPullRequest) {
+  const details = el("details");
+  details.appendChild(el("summary", "Show"));
+  let loaded = false;
+  details.addEventListener("toggle", async () => {
+    if (loaded || !details.open) return;
+    loaded = true;
+    const status = el("p", "Loading...");
+    details.appendChild(status);
+    let commenters;
+    try {
+      commenters = await fetchCommenters(entry, isPullRequest);
+    } catch (error) {
+      status.textContent = error.message;
+      loaded = false;
+      return;
+    }
+    details.removeChild(status);
+    details.querySelector("summary").textContent = `${commenters.length} people`;
+    const total = commenters.reduce((sum, c) => sum + c.count, 0);
+    const table = el("table");
+    const thead = el("thead");
+    const headerRow = el("tr");
+    ["Who", "Comments", "Share"].forEach((text) => headerRow.appendChild(el("th", text)));
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+    const tbody = el("tbody");
+    commenters.forEach(({ login, count }) => {
+      const row = el("tr");
+      const who = el("td");
+      who.appendChild(el("a", login, { href: `https://github.com/${login}` }));
+      row.appendChild(who);
+      row.appendChild(el("td", count));
+      row.appendChild(el("td", `${Math.round((count / total) * 100)}%`));
+      tbody.appendChild(row);
+    });
+    table.appendChild(tbody);
+    details.appendChild(table);
+  });
+  return details;
+}
+
+function drawHallOfFameTable(label, data, isPullRequest) {
+  const table = el("table");
+  table.appendChild(el("caption", `Most commented ${label}`));
+  const thead = el("thead");
+  const headerRow = el("tr");
+  ["#", "Title", "Author", "State", "Comments", "Commenters"].forEach((text) =>
+    headerRow.appendChild(el("th", text))
+  );
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+  const tbody = el("tbody");
+  data.top.forEach((entry, index) => {
+    const row = el("tr");
+    row.appendChild(el("td", index + 1));
+    const title = el("td");
+    title.appendChild(el("a", `#${entry.number} ${entry.title}`, { href: entry.url }));
+    row.appendChild(title);
+    row.appendChild(el("td", entry.author));
+    row.appendChild(el("td", entry.state));
+    row.appendChild(
+      el("td", entry.total, {
+        title: `${entry.issue_comments} conversation, ${entry.review_comments} review`,
+      })
+    );
+    const commenters = el("td");
+    commenters.appendChild(drawCommenters(entry, isPullRequest));
+    row.appendChild(commenters);
+    tbody.appendChild(row);
+  });
+  table.appendChild(tbody);
+  return table;
+}
+
+async function drawHallOfFame() {
+  const section = el("section", undefined, { id: "hall-of-fame" });
+  section.appendChild(el("h2", "Hall of fame"));
+  section.appendChild(
+    el(
+      "p",
+      `The ${HALL_OF_FAME_TOP} most discussed pull requests and issues in ` +
+        `${HALL_OF_FAME_REPO}, counting conversation and review comments. ` +
+        `Expand a row to see who commented.`
+    )
+  );
+  const status = el("p", "Fetching data...");
+  section.appendChild(status);
+  container.appendChild(section);
+
+  const tabs = [
+    { id: "pulls", label: "Pull requests", type: "pr" },
+    { id: "issues", label: "Issues", type: "issue" },
+  ];
+  try {
+    await Promise.all(
+      tabs.map(async (tab) => {
+        tab.data = await cached(`hall-of-fame-${tab.type}`, () =>
+          fetchMostCommented(tab.type)
+        );
+      })
+    );
+  } catch (error) {
+    status.textContent = error.message;
+    return;
+  }
+  section.removeChild(status);
+
+  const tablist = el("div", undefined, { role: "tablist" });
+  section.appendChild(tablist);
+  tabs.forEach((tab, index) => {
+    const selected = index === 0;
+    tab.button = el("button", `${tab.label} (${tab.data.total})`, {
+      role: "tab",
+      id: `tab-${tab.id}`,
+      "aria-selected": selected,
+      "aria-controls": `panel-${tab.id}`,
+    });
+    tab.panel = el("div", undefined, {
+      role: "tabpanel",
+      id: `panel-${tab.id}`,
+      "aria-labelledby": `tab-${tab.id}`,
+    });
+    tab.panel.hidden = !selected;
+    tab.panel.appendChild(
+      drawHallOfFameTable(tab.label.toLowerCase(), tab.data, tab.type === "pr")
+    );
+    tab.button.addEventListener("click", () => {
+      tabs.forEach((t) => {
+        t.button.setAttribute("aria-selected", t === tab);
+        t.panel.hidden = t !== tab;
+      });
+    });
+    tablist.appendChild(tab.button);
+    section.appendChild(tab.panel);
+  });
+}
+
 async function main() {
   let isLoading = true;
+
+  drawHallOfFame();
 
   const progressIndicatorContainer = document.createElement("div");
   progressIndicatorContainer.id = "progress-indicator-container";
